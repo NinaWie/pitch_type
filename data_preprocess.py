@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 import scipy as sp
 import scipy.stats
-from sklearn.utils.class_weight import compute_class_weight
 
 class Preprocessor:
 # COORDINATES
@@ -79,7 +78,7 @@ class Preprocessor:
         unique  = np.unique(dataframe[column].values)
         l = len(dataframe.index)
         loc = dataframe.columns.get_loc(column)
-        labels = np.zeros((l, 12))
+        labels = np.zeros((l, len(unique)))
         for i in range(l):
             #print(cf.iloc[i,loc])
             pitch = dataframe.iloc[i,loc]
