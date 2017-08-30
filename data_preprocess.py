@@ -27,9 +27,10 @@ class Preprocessor:
         #print("csv file pitch von 2000", (self.cf["Pitch Type"].values)[2000])
         #print("csv file coord frame 140 von 200", (self.cf["140"].values)[2000])
         self.label = self.cf["Pitch Type"].values
+        self.release_frame = self.cf['pitch_frame_index'].values
 
-        print("1",self.cf.values.shape)
-        print("2", self.label.shape)
+        # print("1",self.cf.values.shape)
+        # print("2", self.label.shape)
 
     def remove_small_classes(self, min_class_members):
         types = self.cf["Pitch Type"].values
@@ -41,8 +42,13 @@ class Preprocessor:
         print("Removed because not enought class members: ", smaller_min)
         self.label = self.cf["Pitch Type"].values
 
-        print("3",self.cf.values.shape)
-        print("4", self.label.shape)
+        # print("3",self.cf.values.shape)
+        # print("4", self.label.shape)
+
+    def select_movement(self, pitching_position):
+        self.cf = self.cf[self.cf["Pitching Position (P)"]==pitching_position]
+        self.label = self.cf["Pitch Type"].values
+        print("Selected all rows with Pitching position ", pitching_position)
 
     def get_coord_arr(self):
         # get all columns of frames because sometimes 140, sometimes more than 160
@@ -52,7 +58,7 @@ class Preprocessor:
         M, N = data_array.shape
 
         nr_joints = len(eval(data_array[0,0]))
-        print("Shape: ", M, N, nr_joints, 2)
+        # print("Shape: ", M, N, nr_joints, 2)
         data = np.zeros((M,N,nr_joints,2))
 
         # get rid of strings and evaluate to lists
@@ -67,9 +73,22 @@ class Preprocessor:
                     data[i,j] = data[i,j-1]
                     c+=1
         print("percent of missing values:", c/float(g+c))
+        self.label = self.cf["Pitch Type"].values
 
-        # normalization along frame axi
+        self.release_frame = self.cf['pitch_frame_index'].values
+
         return data
+
+    def get_release_frame(self, mini, maxi):
+        releases = self.release_frame
+        over_min = releases[np.where(releases>mini)]
+        below_max = over_min[np.where(over_min<maxi)]
+        mean = np.mean(below_max)
+        releases[np.where(releases<=mini)] = mean
+        releases[np.where(releases>=maxi)] = mean
+        releases[np.where(np.isnan(releases))] = mean
+        return releases
+
 
     def balance(self):
         weights = compute_class_weight("auto", np.unique(self.cf["Pitch Type"].values),self.cf["Pitch Type"].values )
@@ -112,29 +131,30 @@ class Preprocessor:
                 redundant.append(i)
         # print(data.shape)
         # print(len(redundant))
-        print("5",self.data.shape)
-        print("6", self.label.shape)
+        # print("5",self.data.shape)
+        # print("6", self.label.shape)
 
         new = np.delete(data, redundant, axis = 0)
         self.label = np.delete(self.cf["Pitch Type"].values, redundant, axis = 0)
+        self.release_frame = self.cf['pitch_frame_index'].values
         #print(new.shape)
-        print("7",self.data.shape)
-        print("8", self.label.shape)
+        # print("7",self.data.shape)
+        # print("8", self.label.shape)
 
         return new
 
     def get_list_with_most(self, column):
         pitcher = self.cf[column].values #.astype(int)
         statistic = sp.stats.itemfreq(pitcher) #.sort(axis = 0)
-        if column == "Pitch Type":
-            print(statistic)
+        #if column == "Pitch Type":
+        #    print(statistic)
         number = np.array(statistic[:,1])
         a = b = []
         for i in range(5):
             maxi = np.argmax(number)
             a.append(statistic[maxi,0])
             number[maxi]=0
-        return a
+        return a, statistic
 
     def cut_file_to_pitcher(self, player):
         #print(np.any(self.cf["Pitcher"].values ==))

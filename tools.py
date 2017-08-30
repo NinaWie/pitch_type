@@ -34,6 +34,19 @@ class Tools:
         return one_hot_labels, unique
 
     @staticmethod
+    def align_frames(data, release_frame, fr_before, fr_after):
+        M, _, nr_joints, nr_coord = data.shape
+        new = np.zeros((M, fr_after+fr_before, nr_joints, nr_coord))
+        for i, row in enumerate(data):
+            ind = release_frame[i]
+            start = int(ind-fr_before)
+            end = int(ind+ fr_after)
+            #print(start, end)
+            new[i] = data[i, start:end, :,:]
+        return new
+
+
+    @staticmethod
     def decode_one_hot(results, unique):
         """takes the maximum value and gets the corresponding pitch type
         input: array of size trials * pitchTypesNr
@@ -73,7 +86,7 @@ class Tools:
             acc[types] = (int(right_dict[types])/float(total_dict[types]))
 
         return acc
-        
+
     @staticmethod
     def accuracy(out, ground_truth):
         return np.sum(np.array(ground_truth)==np.array(out))/float(len(out))
