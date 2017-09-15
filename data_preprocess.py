@@ -36,10 +36,11 @@ class Preprocessor:
         types = self.cf["Pitch Type"].values
         note_frequency = sp.stats.itemfreq(types)
         print(note_frequency)
-        smaller_min = (note_frequency[np.where(note_frequency[:,1]<min_class_members)])[:,0].flatten()
+        smaller_min = (note_frequency[np.where(note_frequency[:,1]<min_class_members)])[:,0].flatten() # changed to smaller so fastball are cut off
+        self.cf = self.cf.drop(self.cf[self.cf["Pitch Type"]=="Unknown Pitch Type"].index)
         for typ in smaller_min:
             self.cf = self.cf.drop(self.cf[self.cf["Pitch Type"]==typ].index)
-        print("Removed because not enought class members: ", smaller_min)
+        print("Removed because not enought class members: ", smaller_min, "Unknown Pitch Type")
         self.label = self.cf["Pitch Type"].values
 
         # print("3",self.cf.values.shape)
@@ -50,7 +51,7 @@ class Preprocessor:
         self.label = self.cf["Pitch Type"].values
         print("Selected all rows with Pitching position ", pitching_position)
 
-    def get_coord_arr(self):
+    def get_coord_arr(self, save_name=None):
         # get all columns of frames because sometimes 140, sometimes more than 160
 
         begin_cf = self.cf.columns.get_loc("0")
@@ -62,20 +63,24 @@ class Preprocessor:
         data = np.zeros((M,N,nr_joints,2))
 
         # get rid of strings and evaluate to lists
-        c = 0
-        g = 0
+        #c = 0
+        #g = 0
         for i in range(M):
             for j in range(N):
                 if not pd.isnull(data_array[i,j]):
                     data[i,j]=np.array(eval(data_array[i,j]))
-                    g+=1
-                else:
-                    data[i,j] = data[i,j-1]
-                    c+=1
-        print("percent of missing values:", c/float(g+c))
+        #            g+=1
+                #else:
+                #    data[i,j] = data[i,j-1]
+        #            c+=1
+        #print("percent of missing values:", c/float(g+c))
         self.label = self.cf["Pitch Type"].values
 
         self.release_frame = self.cf['pitch_frame_index'].values
+
+        if save_name!=None:
+            np.save(save_name, data)
+            print("Saved with name ", save_name)
 
         return data
 
@@ -98,7 +103,7 @@ class Preprocessor:
         #print("10", self.label.shape)
         return self.label
 
-    def concat_with_second(self, file2):
+    def concat_with_second(self, file2, save_name=None):
         sv = pd.read_csv(file2)
         sv = sv[sv["Player"]=="Pitcher"]
         #for typ in self.smaller_min:
@@ -140,6 +145,9 @@ class Preprocessor:
         #print(new.shape)
         # print("7",self.data.shape)
         # print("8", self.label.shape)
+        if save_name!=None:
+            np.save(save_name, new)
+            print("Saved with name ", save_name)
 
         return new
 
