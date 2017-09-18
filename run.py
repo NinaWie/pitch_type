@@ -39,7 +39,7 @@ class Runner:
 
         M,N,nr_joints,nr_coordinates = data.shape
 
-        SEP = int(M*0.9)
+        SEP = int(M*0.95)
 
         nr_classes = len(unique)
         print("classes", unique)
@@ -59,7 +59,7 @@ class Runner:
             elif network == "adjustable conv1d":
                 out, logits = model.conv1d_with_parameters(x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
                 second_conv_kernel, first_hidden_dense, second_hidden_dense)
-            elif network == "rnn with lstm_units and lstm_hidden_layers + 1 dense(nr_classes)":
+            elif network == "rnn":
                 out, logits = model.RNN(x, nr_classes, n_hidden, nr_layers)
             elif network=="conv1d(256,5,2)-conv1d(256,3)-conv1d(128,3)-conv1d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
                 out, logits = model.conv1dnet(x, nr_classes, training, rate_dropout, act)
@@ -84,12 +84,54 @@ class Runner:
             return pitches_test, acc
         # NET
         else:
-            labels, _ = Tools.onehot_encoding(labels_string)
-            ex_per_class = 40//nr_classes
-            BATCHSIZE = nr_classes*ex_per_class
+            M,N,nr_joints,nr_coordinates = data.shape
+            SEP = int(M*0.9)
+            # print("Test set size: ", len_test, " train set size: ", len_train)
+            # print("Shapes of train_x", train_x.shape, "shape of test_x", test_x.shape)
             ind = np.random.permutation(len(data))
             train_ind = ind[:SEP]
             test_ind = ind[SEP:]
+
+            # RNN tflearn
+            if network=="tflearn":
+                import tflearn
+                from tflearn import DNN
+                train_x = data[train_ind]
+                testing = data[test_ind]
+                test_x = testing[:-40]
+                val_x = testing[-40:]
+                labels_string_train = labels_string[train_ind]
+                labels_string_testing = labels_string[test_ind]
+                labels_string_test = labels_string_testing[:-40]
+                labels_string_val = labels_string_testing[-40:]
+                train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
+                train_t = Tools.onehot_with_unique(labels_string_train, unique.tolist())
+                test_t = Tools.onehot_with_unique(labels_string_test, unique.tolist())
+                print("Train", train_x.shape, train_t.shape, labels_string_train.shape, "Test", test_x.shape, test_t.shape, labels_string_test.shape, "Val", val_x.shape, labels_string_val.shape)
+                len_train, N, nr_joints, nr_coordinates = train_x.shape
+                tr_x = train_x.reshape(len_train, N, nr_joints*nr_coordinates)
+                te_x = test_x.reshape(len(test_x), N, nr_joints*nr_coordinates)
+                val = val_x.reshape(len(val_x), N, nr_joints*nr_coordinates)
+
+                out, network = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes,nr_layers, n_hidden, rate_dropout)
+                m = DNN(network)
+                m.fit(tr_x, train_t, validation_set=(te_x, test_t), show_metric=True, batch_size=BATCH_SZ, snapshot_step=1000, n_epoch=EPOCHS)
+                labels_string_test = labels_string_test[:40]
+                out_test = m.predict(val)
+                pitches_test = Tools.decode_one_hot(out_test, unique)
+                print("Accuracy test: ", Tools.accuracy(pitches_test, labels_string_val))
+                print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_val))
+                print("True                   Test                 ", unique)
+                # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
+                for i in range(len(labels_string_test)):
+                    print('{:20}'.format(labels_string_val[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
+
+                return pitches_test, Tools.accuracy(pitches_test, labels_string_test)
+
+
+            labels, _ = Tools.onehot_encoding(labels_string)
+            ex_per_class = BATCH_SZ//nr_classes
+            BATCHSIZE = nr_classes*ex_per_class
 
             train_x = data[train_ind]
             test_x = data[test_ind]
@@ -97,40 +139,12 @@ class Runner:
             test_t = labels[test_ind]
             labels_string_train = labels_string[train_ind]
             labels_string_test = labels_string[test_ind]
-
-
+            #train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
             index_liste = []
             for pitches in unique:
                 index_liste.append(np.where(labels_string_train==pitches))
-
             len_test = len(test_x)
             len_train = len(train_x)
-            # print("Test set size: ", len_test, " train set size: ", len_train)
-            # print("Shapes of train_x", train_x.shape, "shape of test_x", test_x.shape)
-
-
-            # RNN tflearn
-            if network=="tflearn":
-                import tflearn
-                from tflearn import DNN
-                tr_x = train_x.reshape(len_train, N, nr_joints*nr_coordinates)
-                te_x = test_x.reshape(len_test, N, nr_joints*nr_coordinates)
-
-                out, network = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes, n_hidden)
-                m = DNN(network)
-
-                m.fit(tr_x, train_t, validation_set=(te_x, test_t), show_metric=True, batch_size=BATCHSIZE, snapshot_step=100, n_epoch=EPOCHS)
-
-                out_test = m.predict(te_x)
-                pitches_test = Tools.decode_one_hot(out_test, unique)
-                print("Accuracy test: ", Tools.accuracy(pitches_test, labels_string_test))
-                print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
-                print("True                   Test                 ", unique)
-                # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-                for i in range(len(labels_string_test)):
-                    print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
-
-                return pitches_test, Tools.accuracy(pitches_test, labels_string_test)
 
             x = tf.placeholder(tf.float32, (None, N, nr_joints, nr_coordinates), name = "input")
 
@@ -158,9 +172,9 @@ class Runner:
 
 
             loss_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits))
-            loss_regularization = 0.0005 * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
+            loss_regularization = regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
             loss_maximum = tf.reduce_mean(tf.reduce_max(tf.nn.relu(y-out), axis = 1))
-            loss = loss_entropy # loss_regularization+  loss_maximum #0.001  loss_entropy +
+            loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
             # loss = tf.reduce_mean(tf.pow(out-y, 2))
             # loss = tf.reduce_sum(tf.pow(out - y, 2)) + 0.5*regularization_cost
 
@@ -176,13 +190,7 @@ class Runner:
             # train_writer = tf.summary.FileWriter("./logs/nn_logs" + '/train', sess.graph)
             #
             # # TRAINING
-            # saver = tf.train.Saver(tv)
-            # # sess = tf.Session()
-            # if RESTORE is None:
-            #     sess.run(tf.global_variables_initializer())
-            # else:
-            #     saver.restore(sess, RESTORE)
-            #     print("Restored from file")
+            saver = tf.train.Saver(tv)
 
             tf.summary.scalar("loss_entropy", loss_entropy)
             tf.summary.scalar("loss_regularization", loss_regularization)
@@ -203,13 +211,15 @@ class Runner:
                     liste=np.zeros((nr_classes, ex_per_class))
                     for i in range(nr_classes):
                         # print(j, i, np.random.choice(index_liste[i][0], ex_per_class))
-                        liste[i] = np.random.choice(index_liste[i][0], ex_per_class, replace=True)
+                        liste[i] = np.random.choice(index_liste[i][0], ex_per_class, replace=False)
                     liste = liste.flatten().astype(int)
                     yield j, x[liste], y[liste]
 
             acc_test  = []
+            acc_train  = []
             acc_balanced = []
             losses = []
+            print("Loss", "Acc train", "Acc test", "Acc balanced")
             # Run session for EPOCH epochs
             for epoch in range(EPOCHS + 1):
                 for i, batch_x, batch_t in balanced_batches(train_x, train_t, nr_classes):
@@ -222,15 +232,14 @@ class Runner:
                 losses.append(np.around(loss_test, 2))
                 acc_balanced.append(np.around(Tools.balanced_accuracy(pitches_test, labels_string_test),2))
                 #Train Accuracy
-                # out_train = sess.run(out, {x: train_x, y: train_t, training: False})
-                # pitches_train = Tools.decode_one_hot(out_train, unique)
-                # acc_train.append(Tools.accuracy(pitches_train, labels_string_train))
-                print(loss_test, acc_test[-1], acc_balanced[-1])
+                out_train = sess.run(out, {x: train_x, y: train_t, training: False})
+                pitches_train = Tools.decode_one_hot(out_train, unique)
+                acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
+                print(loss_test, acc_train[-1], acc_test[-1], acc_balanced[-1])
 
             # AUSGABE AM ENDE
             print("\n\n\n---------------------------------------------------------------------")
-            print("NEW PARAMETERS: ", BATCHSIZE, CUT_OFF_Classes , EPOCHS, act, align, batch_nr_in_epoch, rate_dropout
-                                 , PATH, learning_rate, len_train, n_hidden, nr_layers, network, nr_classes, nr_joints)
+            #print("NEW PARAMETERS: ", BATCHSIZE, EPOCHS, act, align, batch_nr_in_epoch, rate_dropout, learning_rate, len_train, n_hidden, nr_layers, network, nr_classes, nr_joints)
             #Test Accuracy
             print("Losses", losses)
             print("Accuracys test: ", acc_test)
@@ -238,7 +247,7 @@ class Runner:
             print("\nMAXIMUM ACCURACY TEST: ", max(acc_test))
             #print("MAXIMUM ACCURACY TRAIN: ", max(acc_train))
 
-            #print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
+            print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
             print("True                Test                 ", unique)
             # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
             for i in range(20):
@@ -258,7 +267,7 @@ class Runner:
             # concat = new.append(add, ignore_index = True)
             # concat.drop(concat.columns[[0]], axis=1, inplace=True)
             # concat.to_csv("test_parameters.csv")
-            saver.save(sess, "model")
+            saver.save(sess, "good_results/model")
             return pitches_test, max(acc_test)
 
 # a = ["conv1d (256, 5) - conv1d(128, 3) - dense(nr_classes) - softmax", "rnn with lstm_units and lstm_hidden_layers + 1 dense(nr_classes)"]
