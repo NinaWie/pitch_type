@@ -19,6 +19,28 @@ class Tools:
         return data_new
 
     @staticmethod
+    def renormalize(data, means, std, one_pitch=None):
+        if one_pitch is None:
+            res = np.asarray([data[:,i]*std+means for i in range(len(data[0]))])
+            #print(res.shape)
+            data_new = np.swapaxes(res, 0,1)
+        else:
+            print(data.shape)
+            data_new = np.asarray([data[i]*std[one_pitch]+means[one_pitch] for i in range(len(data))])
+        return data_new
+
+    @staticmethod
+    def labels_to_classes(labels):
+        print(labels[:20])
+        classes = {"Fastball (4-seam)":"Fastball", "Fastball (2-seam)": "Fastball", 'Fastball (Cut)': "Fastball", 'Fastball (Split-finger)': "Fastball", "Sinker": "Fastball",
+        'Curveball': "Breaking Ball", "Slider": "Breaking Ball", 'Knuckle curve':"Breaking Ball", 'Knuckleball': "Breaking Ball", "Changeup": "Changeup"}
+        for uni in np.unique(labels):
+            labels[labels==uni] = classes[uni]
+        print(labels[:20])
+        return labels
+
+
+    @staticmethod
     def onehot_encoding(labels):
         """ one hot encoding for labels"""
         #dataframe = self.cf
