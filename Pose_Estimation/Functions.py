@@ -47,18 +47,18 @@ blocks = {}
 limbSeq = [[2,3], [2,6], [3,4], [4,5], [6,7], [7,8], [2,9], [9,10], \
            [10,11], [2,12], [12,13], [13,14], [2,1], [1,15], [15,17], \
            [1,16], [16,18], [3,17], [6,18]]
-           
+
 # the middle joints heatmap correpondence
 mapIdx = [[31,32], [39,40], [33,34], [35,36], [41,42], [43,44], [19,20], [21,22], \
           [23,24], [25,26], [27,28], [29,30], [47,48], [49,50], [53,54], [51,52], \
           [55,56], [37,38], [45,46]]
-          
+
 # visualize
 colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0], \
           [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], \
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
-          
-             
+
+
 block0  = [{'conv1_1':[3,64,3,1,1]},{'conv1_2':[64,64,3,1,1]},{'pool1_stage1':[2,2,0]},{'conv2_1':[64,128,3,1,1]},{'conv2_2':[128,128,3,1,1]},{'pool2_stage1':[2,2,0]},{'conv3_1':[128,256,3,1,1]},{'conv3_2':[256,256,3,1,1]},{'conv3_3':[256,256,3,1,1]},{'conv3_4':[256,256,3,1,1]},{'pool3_stage1':[2,2,0]},{'conv4_1':[256,512,3,1,1]},{'conv4_2':[512,512,3,1,1]},{'conv4_3_CPM':[512,256,3,1,1]},{'conv4_4_CPM':[256,128,3,1,1]}]
 
 blocks['block1_1']  = [{'conv5_1_CPM_L1':[128,128,3,1,1]},{'conv5_2_CPM_L1':[128,128,3,1,1]},{'conv5_3_CPM_L1':[128,128,3,1,1]},{'conv5_4_CPM_L1':[128,512,1,1,0]},{'conv5_5_CPM_L1':[512,38,1,1,0]}]
@@ -75,7 +75,7 @@ def make_layers(cfg_dict):
     layers = []
     for i in range(len(cfg_dict)-1):
         one_ = cfg_dict[i]
-        for k,v in one_.iteritems():      
+        for k,v in one_.iteritems():
             if 'pool' in k:
                 layers += [nn.MaxPool2d(kernel_size=v[0], stride=v[1], padding=v[2] )]
             else:
@@ -87,71 +87,71 @@ def make_layers(cfg_dict):
     conv2d = nn.Conv2d(in_channels=v[0], out_channels=v[1], kernel_size=v[2], stride = v[3], padding=v[4])
     layers += [conv2d]
     return nn.Sequential(*layers)
-    
+
 layers = []
 for i in range(len(block0)):
     one_ = block0[i]
-    for k,v in one_.iteritems():      
+    for k,v in one_.iteritems():
         if 'pool' in k:
             layers += [nn.MaxPool2d(kernel_size=v[0], stride=v[1], padding=v[2] )]
         else:
             conv2d = nn.Conv2d(in_channels=v[0], out_channels=v[1], kernel_size=v[2], stride = v[3], padding=v[4])
-            layers += [conv2d, nn.ReLU(inplace=True)]  
-       
-models = {}           
-models['block0']=nn.Sequential(*layers)        
+            layers += [conv2d, nn.ReLU(inplace=True)]
+
+models = {}
+models['block0']=nn.Sequential(*layers)
 
 for k,v in blocks.iteritems():
     models[k] = make_layers(v)
-                
+
 class pose_model(nn.Module):
     def __init__(self,model_dict,transform_input=False):
         super(pose_model, self).__init__()
         self.model0   = model_dict['block0']
-        self.model1_1 = model_dict['block1_1']        
-        self.model2_1 = model_dict['block2_1']  
-        self.model3_1 = model_dict['block3_1']  
-        self.model4_1 = model_dict['block4_1']  
-        self.model5_1 = model_dict['block5_1']  
-        self.model6_1 = model_dict['block6_1']  
-        
-        self.model1_2 = model_dict['block1_2']        
-        self.model2_2 = model_dict['block2_2']  
-        self.model3_2 = model_dict['block3_2']  
-        self.model4_2 = model_dict['block4_2']  
-        self.model5_2 = model_dict['block5_2']  
+        self.model1_1 = model_dict['block1_1']
+        self.model2_1 = model_dict['block2_1']
+        self.model3_1 = model_dict['block3_1']
+        self.model4_1 = model_dict['block4_1']
+        self.model5_1 = model_dict['block5_1']
+        self.model6_1 = model_dict['block6_1']
+
+        self.model1_2 = model_dict['block1_2']
+        self.model2_2 = model_dict['block2_2']
+        self.model3_2 = model_dict['block3_2']
+        self.model4_2 = model_dict['block4_2']
+        self.model5_2 = model_dict['block5_2']
         self.model6_2 = model_dict['block6_2']
-        
-    def forward(self, x):    
+
+    def forward(self, x):
         out1 = self.model0(x)
-        
+
         out1_1 = self.model1_1(out1)
         out1_2 = self.model1_2(out1)
         out2  = torch.cat([out1_1,out1_2,out1],1)
-        
+
         out2_1 = self.model2_1(out2)
         out2_2 = self.model2_2(out2)
         out3   = torch.cat([out2_1,out2_2,out1],1)
-        
+
         out3_1 = self.model3_1(out3)
         out3_2 = self.model3_2(out3)
         out4   = torch.cat([out3_1,out3_2,out1],1)
 
         out4_1 = self.model4_1(out4)
         out4_2 = self.model4_2(out4)
-        out5   = torch.cat([out4_1,out4_2,out1],1)  
-        
+        out5   = torch.cat([out4_1,out4_2,out1],1)
+
         out5_1 = self.model5_1(out5)
         out5_2 = self.model5_2(out5)
-        out6   = torch.cat([out5_1,out5_2,out1],1)         
-              
+        out6   = torch.cat([out5_1,out5_2,out1],1)
+
         out6_1 = self.model6_1(out6)
         out6_2 = self.model6_2(out6)
-        
-        return out6_1,out6_2        
+
+        return out6_1,out6_2
 
 
-model = pose_model(models)     
+model = pose_model(models)
 model.load_state_dict(torch.load(weight_name))
 model.cuda()
 model.float()
@@ -162,13 +162,13 @@ param_, model_ = config_reader()
 def handle_one(oriImg):
     tic = time.time()
  #   print 1
-    
+
     # for visualize
 #canvas = np.copy(oriImg)
     multiplier = [x * model_['boxsize'] / oriImg.shape[0] for x in param_['scale_search']]
 
     scale = model_['boxsize'] / float(oriImg.shape[0])
-  
+
     #print("handle one1" ,time.time()-tic)
     tic=time.time()
  #   print 3,time.time()-tic
@@ -178,15 +178,15 @@ def handle_one(oriImg):
     len_mul=e-b
     multiplier=multiplier[b:e]
     heatmap_avg = torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])).cuda()
-    paf_avg = torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])).cuda() 
+    paf_avg = torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])).cuda()
     toc =time.time()
     #print("handle one 2",toc-tic)
 
     tic = time.time()
 
-    
+
     for m in range(1): #len(multiplier)):
-        
+
         tictic= time.time()
         scale = multiplier[m]
 
@@ -194,39 +194,39 @@ def handle_one(oriImg):
         imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
         imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
  #       print imageToTest_padded.shape
-        feed = Variable(T.from_numpy(imageToTest_padded)).cuda()      
+        feed = Variable(T.from_numpy(imageToTest_padded)).cuda()
         output1,output2 = model(feed)
  #       print time.time()-tictic,"first part"
         tictic=time.time()
         heatmap = nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])).cuda()(output2)
         #nearest neighbors
-        paf = nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])).cuda()(output1)       
+        paf = nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])).cuda()(output1)
 
         globals()['heatmap_avg_%s'%m] = heatmap[0].data
-        globals()['paf_avg_%s'%m] = paf[0].data 
+        globals()['paf_avg_%s'%m] = paf[0].data
         #heatmap_avg[m] = heatmap[0].data
-        #paf_avg[m] = paf[0].data 
+        #paf_avg[m] = paf[0].data
   #      print 'loop', m ,' ',time.time()-tictic, "second part"
-    
+
     #print("handle one 3" , time.time()-tic)
     toc = time.time()
-    #print 'time is %.5f'%(toc-tic) 
+    #print 'time is %.5f'%(toc-tic)
     temp1=(heatmap_avg_0)#+heatmap_avg_1)/float(len_mul)
     temp2=(paf_avg_0)#+paf_avg_1)/float(len_mul)
-    heatmap_avg = T.transpose(T.transpose(T.squeeze(temp1),0,1),1,2).cuda() 
-    paf_avg     = T.transpose(T.transpose(T.squeeze(temp2),0,1),1,2).cuda() 
-    #heatmap_avg = T.transpose(T.transpose(T.squeeze(T.mean(heatmap_avg, 0)),0,1),1,2).cuda() 
-    #paf_avg     = T.transpose(T.transpose(T.squeeze(T.mean(paf_avg, 0)),0,1),1,2).cuda() 
+    heatmap_avg = T.transpose(T.transpose(T.squeeze(temp1),0,1),1,2).cuda()
+    paf_avg     = T.transpose(T.transpose(T.squeeze(temp2),0,1),1,2).cuda()
+    #heatmap_avg = T.transpose(T.transpose(T.squeeze(T.mean(heatmap_avg, 0)),0,1),1,2).cuda()
+    #paf_avg     = T.transpose(T.transpose(T.squeeze(T.mean(paf_avg, 0)),0,1),1,2).cuda()
     heatmap_avg=heatmap_avg.cpu().numpy()
     paf_avg    = paf_avg.cpu().numpy()
     all_peaks = []
     peak_counter = 0
     #print '5bis', time.time()-toc
-    #maps = 
+    #maps =
 #    s= heatmap_avg[:,:,0].shape
 #    map_ori=heatmap_avg[:,:,12].cuda()
 #    map = gaussian_filter(map_ori, sigma=3)
-#            
+#
 #    map_left = np.ones(map.shape)
 #    map_left[1:,:] = map[:-1,:]
 #    map_right = np.zeros(map.shape)
@@ -235,18 +235,18 @@ def handle_one(oriImg):
 #    map_up[:,1:] = map[:,:-1]
 #    map_down = np.zeros(map.shape)
 #    map_down[:,:-1] = map[:,1:]
-#    
+#
 #    peaks_binary = np.logical_and.reduce((map>=map_left, map>=map_right, map>=map_up, map>=map_down, map > param_['thre1']))
 #
 #    peaks0 = zip(np.nonzero(peaks_binary)[1], np.nonzero(peaks_binary)[0]) # note reverse
-#    
+#
 #    peaks_with_score = [x + (map_ori[x[1],x[0]],) for x in peaks0]
 #    peaks_with_score_and_id0 = [peaks_with_score[i] + (id[i],) for i in range(len(id))]
-    for part in range(18):  
+    for part in range(18):
         if part<18-head:
             map_ori = heatmap_avg[:,:,part]
             map = gaussian_filter(map_ori, sigma=3)
-            
+
             map_left = np.zeros(map.shape)
             map_left[1:,:] = map[:-1,:]
             map_right = np.zeros(map.shape)
@@ -255,9 +255,9 @@ def handle_one(oriImg):
             map_up[:,1:] = map[:,:-1]
             map_down = np.zeros(map.shape)
             map_down[:,:-1] = map[:,1:]
-            
+
             peaks_binary = np.logical_and.reduce((map>=map_left, map>=map_right, map>=map_up, map>=map_down, map > param_['thre1']))
-    
+
             peaks = zip(np.nonzero(peaks_binary)[1], np.nonzero(peaks_binary)[0]) # note reverse
             globals()['peaks%s'%part]=peaks
             peaks_with_score = [x + (map_ori[x[1],x[0]],) for x in peaks]
@@ -268,9 +268,9 @@ def handle_one(oriImg):
             peak_counter += len(peaks)
         else :
             all_peaks.append(peaks_with_score_and_id_0)
-            peak_counter += len(peaks0)             
-    
-        
+            peak_counter += len(peaks0)
+
+
     #print("handle one 4",time.time()-toc)
     tic=time.time()
     connection_all = []
@@ -291,10 +291,10 @@ def handle_one(oriImg):
                     vec = np.subtract(candB[j][:2], candA[i][:2])
                     norm = math.sqrt(vec[0]*vec[0] + vec[1]*vec[1])
                     vec = np.divide(vec, norm)
-                    
+
                     startend = zip(np.linspace(candA[i][0], candB[j][0], num=mid_num), \
                                    np.linspace(candA[i][1], candB[j][1], num=mid_num))
-                    
+
                     vec_x = np.array([score_mid[int(round(startend[I][1])), int(round(startend[I][0])), 0] \
                                       for I in range(len(startend))])
                     vec_y = np.array([score_mid[int(round(startend[I][1])), int(round(startend[I][0])), 1] \
@@ -332,7 +332,7 @@ def handle_one(oriImg):
 
     #print 'candidate is ', candidate
     for k in range(len(mapIdx)-head):
-    
+
         if k not in special_k:
             partAs = connection_all[k][:,0]
             partBs = connection_all[k][:,1]
@@ -345,7 +345,7 @@ def handle_one(oriImg):
                     if subset[j][indexA] == partAs[i] or subset[j][indexB] == partBs[i]:
                         subset_idx[found] = j
                         found += 1
-    
+
                 if found == 1:
                     j = subset_idx[0]
                     if(subset[j][indexB] != partBs[i]):
@@ -382,22 +382,22 @@ def handle_one(oriImg):
     #        deleteIdx.append(i)
     #temp = np.delete(subset, deleteIdx, axis=0)
 
-    
+
 #    canvas = cv2.imread(test_image) # B,G,R order
 
 
 
     output_coordinates=np.zeros((len(subset),18,2))
-  
-    
-    
+
+
+
     for i in range(18):
         for n in range(len(subset)):
             index = subset[n][np.array(limbSeq[i])-1]
             if -1 in index:
                 continue
             Y = candidate[index.astype(int), 0]
-            X = candidate[index.astype(int), 1] 
+            X = candidate[index.astype(int), 1]
             mX = np.mean(X)
             mY = np.mean(Y)
             output_coordinates[n,i,0]=mX
@@ -407,15 +407,15 @@ def handle_one(oriImg):
 
 
 
-def player_localization(df,frame,player,old_array):  
+def player_localization(df,frame,player,old_array):
     tic = time.time()
-    player2=player+'_player' 
+    player2=player+'_player'
     dist=[]
     for i in range(np.asarray(df[player][frame]).shape[0]):
         zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]<>0)
         zerrow2=np.where(old_array[:,0]<>0)
         zerrow=np.intersect1d(zerrow1,zerrow2)
-       
+
         if len(zerrow)<2:
             zerrow=zerrow2
         dist.append(np.linalg.norm(np.asarray(df[player][frame])[i,zerrow[0],:]-old_array[zerrow[0],:])/len(zerrow))
@@ -423,7 +423,7 @@ def player_localization(df,frame,player,old_array):
     #print df[player][frame]
     if len(dist)==0 or np.min(dist)>3:
         df[player2][frame]=[[0,0] for i in range(18)]
-    else:     
+    else:
         df[player2][frame]=df[player][frame][np.argmin(dist)]
     array_stored=np.asarray(df[player2][frame])
     array_stored[np.where(array_stored==0)]=old_array[np.where(array_stored==0)]
@@ -433,7 +433,7 @@ def player_localization(df,frame,player,old_array):
     #print("Time for player_localization: ", toc-tic)
     return df, old_array
 
-        
+
 
 def continuity(df_res,player):
     tic = time.time()
@@ -447,7 +447,7 @@ def continuity(df_res,player):
             for i in range(mat.shape[2]):
                 not_zer = np.logical_not(mat[limb,xy,:]==0)
                 indices = np.arange(len(mat[limb,xy,:]))
-                try : 
+                try :
                     mat[limb,xy,:]=np.round(np.interp(indices, indices[not_zer], mat[limb,xy,:][not_zer]),1)
                     # from scipy.interpolate import interp1d
                     # f = interpld(indices[not_zer], mat[limb,xy,:][not_zer])
@@ -460,9 +460,9 @@ def continuity(df_res,player):
     toc = time.time()
     print("Time for continuity ", toc-tic)
     return df_res
-   
-    
-        
+
+
+
 def mix_right_left(df,index,player):
     tic = time.time()
     player=player+'_player'
@@ -470,21 +470,21 @@ def mix_right_left(df,index,player):
         if i==0: continue
         else:
             if abs(np.asarray(df[player][i])[index[1]][1]-np.asarray(df[player][i-1])[index[1]][1])+abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[1]][0])>abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[1]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[1]][1]) and abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1])+abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[0]][0])>abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[0]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1]):
-                
+
                 left=df[player][i][index[1]]
                 right=df[player][i][index[0]]
                 #print i,player,'left is',left,'right is',right
                 df[player][i][index[1]]=right
                 df[player][i][index[0]]=left
-             
+
     toc = time.time()
     #print("Time for mix right left", toc-tic)
     return df
-    
 
-def df_coordinates(df,centerd): 
+
+def df_coordinates(df,centerd):
     df.sort_values(by='Frame',ascending=1,inplace=True)
-    df.reset_index(inplace=True,drop=True)            
+    df.reset_index(inplace=True,drop=True)
     df['Batter_player']=df['Batter'].copy()
     df['Pitcher_player']=df['Pitcher'].copy()
     for player in ['Batter','Pitcher']:
@@ -498,29 +498,24 @@ def df_coordinates(df,centerd):
 
             hips=hips[np.sum(hips,axis=1)<>0]
             mean_hips=np.mean(hips,axis=0)
-            
-        
-            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip      
-            if norm<old_norm:
 
-                loc=person                  
-                old_norm=norm  
-      
+
+            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
+            if norm<old_norm:
+                loc=person
+                old_norm=norm
+
         df[player2][0]=df[player][0][loc]
         globals()['old_array_%s'%player]=np.asarray(df[player][0][loc])
 
     for frame in df['Frame'][1:len(df)]:
         for player in ['Batter','Pitcher']:
             df,globals()['old_array_%s'%player]=player_localization(df,frame,player,globals()['old_array_%s'%player])
-      
+
     for player in player_list:
         for index in index_list:
-            df=mix_right_left(df,index,player)             
+            df=mix_right_left(df,index,player)
     df=continuity(df,'Pitcher')
     df=continuity(df,'Batter')
 
     return df[['Frame','Pitcher_player','Batter_player']]
-
-
-
-
