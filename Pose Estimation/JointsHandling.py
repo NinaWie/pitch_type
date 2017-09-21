@@ -15,9 +15,10 @@ parser.add_argument('output_dir', metavar='DIR',
                     help='folder where merge.csv are')
 parser.add_argument('extension', metavar='DIR',
                     help='-')
+# example usage: python JointsHandling.py atl/ output/ .mp4
 
 dates = ["2017-04-14", "2017-04-18", "2017-05-02", "2017-05-06"] # , "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16", "2017-04-15", "2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07", "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17"]
-# only first two rows von den im cluster angezeigten
+
 
 
 for date in dates:
