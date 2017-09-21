@@ -2,12 +2,12 @@
 
 * Pitch type classification from videos of baseball games
 
-### 1. Find hyperparameters for RNN ([here](hyperparameter\ finding))
+### 1. Find hyperparameters for RNN [hyperparameters](hyperparameter finding)
 * Trained differen convolutional and recurrent NN models
 * Tested hyperparameters systematically with csv file and with genetic programming (but tended to make only fully connected layers)
-* Best accuracy 64% 
+* Best accuracy 64% on all data
 
-### 2. Explore data: (in [here](/notebooks\ exploration/Evaluation.ipynb)
+### 2. Explore data: [Evaluation.ipynb](notebooks exploration/Evaluation.ipynb)
 * Coordinate trajectories
 * Investigate data by plotting mean and different examples of joints by pitch type
 
