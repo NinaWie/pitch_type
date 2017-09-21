@@ -1,0 +1,28 @@
+/scratch/nvw224/WHOLE/Functions.py:293: RuntimeWarning: invalid value encountered in divide
+  vec = np.divide(vec, norm)
+/scratch/nvw224/WHOLE/Functions.py:308: RuntimeWarning: invalid value encountered in greater
+  criterion1 = len(np.nonzero(score_midpts > param_['thre2'])[0]) > 0.8 * len(score_midpts)
+/share/apps/python/2.7.12/intel/lib/python2.7/site-packages/numpy-1.11.2-py2.7-linux-x86_64.egg/numpy/core/_methods.py:59: RuntimeWarning: Mean of empty slice.
+  warnings.warn("Mean of empty slice.", RuntimeWarning)
+/share/apps/python/2.7.12/intel/lib/python2.7/site-packages/numpy-1.11.2-py2.7-linux-x86_64.egg/numpy/core/_methods.py:68: RuntimeWarning: invalid value encountered in true_divide
+  ret, rcount, out=ret, casting='unsafe', subok=False)
+/scratch/nvw224/WHOLE/Functions.py:509: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  df[player2][0]=df[player][0][loc]
+/scratch/nvw224/WHOLE/Functions.py:427: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  df[player2][frame]=df[player][frame][np.argmin(dist)]
+/scratch/nvw224/WHOLE/Functions.py:425: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  df[player2][frame]=[[0,0] for i in range(18)]
+/scratch/nvw224/WHOLE/Functions.py:459: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame
+
+See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
+  df_res[player+'_player'][i]=mat[:,:,i].tolist()
