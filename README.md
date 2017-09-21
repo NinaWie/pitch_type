@@ -30,7 +30,7 @@
 * maybe information loss when using coordinates and not videos
 * trained LSTM on video arrays directly
 * see this [folder](video_to_pitchtype_directly)
-* see [notebook videos](notebooks\ exploration/On videos.ipynb) for exploration
+* see [notebook](notebooks\ exploration/On\ videos.ipynb) for exploration
 * Maybe loss of information when getting the coordinates - therefore trained LSTM directly on videos
 * up to 50% Acc
 * possible todo: try 3D conv net
