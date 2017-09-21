@@ -17,7 +17,7 @@
 * Tried different filters (Kalmann, Gaussian, Cubic and linear interpolation) to fill in the values and smoothen the curve
 * Problem: Sometimes the outliers are actually the right values
 * Used LSTM to learn coordinate trajectories to fill in missing values, works but not plotted yet
-* ML coord fill in [RNN here](videos_to_joints/coord_fill_in.py) 
+* ML coord fill in [RNN here](data_preprocessing/coord_fill_in.py) 
 
 ### 3. Process videos to joint coordinates
 * see [Pose estimation](Pose_Estimation)
