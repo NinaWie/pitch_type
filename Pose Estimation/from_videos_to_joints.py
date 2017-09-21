@@ -14,12 +14,8 @@ import ast
 parser = argparse.ArgumentParser(description='Pose Estimation Baseball')
 parser.add_argument('input_dir', metavar='DIR', help='folder where videos are')
 parser.add_argument('output_dir', metavar='DIR', help='folder where to put joint outputs') # both directories must have / in the end
-# example arg: /Volumes/Nina\ Backup/videos/atl/2017-04-15/center\ field/
+# example usage: python from_videos_to_joints.py ./atl/2017-05-06/center\ field/ out_joints/ # make directory out_joints first
 
-#dates = ["2017-04-14", "2017-04-18", "2017-05-02", "2017-05-06"] # , "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16",
-#"2017-04-15", "2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07", "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17"]
-# only first two rows von den im cluster angezeigten
-# for date in dates:
 
 args = parser.parse_args()
 directory = args.input_dir
@@ -28,14 +24,14 @@ out_dir = args.output_dir
 files = []
 for ff in listdir(directory):
     string_f = str(ff)
-    if not string_f.endswith("dat"):
+    if  not string_f.endswith("dat"):
         files.append(string_f)
 
-#print(files)
+print(files)
 
 for fi in files:
-    ext= fi[-4:]
     f = directory+fi
+    ext= f[-4:]
     j=0
     center_dic={}
     tic=time.time()
