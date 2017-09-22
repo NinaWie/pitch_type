@@ -60,18 +60,18 @@ if  normalize:
 print(data.shape, len(labels_string), np.unique(labels_string))
 
 
-# runner = Runner(data, labels_string, SAVE = "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/modelCarlos2", BATCH_SZ=40, EPOCHS = 10, batch_nr_in_epoch = 100,
-#         act = tf.nn.relu, rate_dropout = 0,
-#         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-#         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
-#         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-#         network = "adjustable conv1d")
-#
-# runner.start()
+runner = Runner(data, labels_string, SAVE = "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/modelCarlos", BATCH_SZ=40, EPOCHS = 10, batch_nr_in_epoch = 100,
+        act = tf.nn.relu, rate_dropout = 0,
+        learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+        first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
+        second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
+        network = "adjustable conv1d")
 
-pitches_test, out_test = test(data, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/modelCarlos2")
-print(Tools.accuracy(pitches_test, labels_string))
-print("True                   Test                 ", np.unique(labels_string))
-# print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-for i in range(len(labels_string)):
-    print('{:20}'.format(labels_string[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
+runner.start()
+
+# pitches_test, out_test = test(data, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/modelCarlos")
+# print(Tools.accuracy(pitches_test, labels_string))
+# print("True                   Test                 ", np.unique(labels_string))
+# # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
+# for i in range(len(labels_string)):
+#     print('{:20}'.format(labels_string[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
