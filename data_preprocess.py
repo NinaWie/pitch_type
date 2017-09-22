@@ -177,6 +177,7 @@ class Preprocessor:
         for p in player:
             ind += (np.where(self.cf["Pitcher"].values==p)[0]).tolist()
         self.cf = self.cf.iloc[ind]
+        self.label = self.cf["Pitch Type"].values
         # print(self.cf.values.shape)
 
     def set_labels(self, pitchType):
