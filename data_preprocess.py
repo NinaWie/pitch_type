@@ -70,8 +70,8 @@ class Preprocessor:
                 if not pd.isnull(data_array[i,j]):
                     data[i,j]=np.array(eval(data_array[i,j]))
         #            g+=1
-                #else:
-                #    data[i,j] = data[i,j-1]
+                else:
+                    data[i,j] = data[i,j-1]
         #            c+=1
         #print("percent of missing values:", c/float(g+c))
         self.label = self.cf["Pitch Type"].values
@@ -102,6 +102,9 @@ class Preprocessor:
         #print("9",self.cf.values.shape)
         #print("10", self.label.shape)
         return self.label
+
+    def set_labels_toWindup(self):
+        self.label = self.cf["Pitching Position (P)"].values
 
     def concat_with_second(self, file2, save_name=None):
         sv = pd.read_csv(file2)
@@ -167,6 +170,14 @@ class Preprocessor:
     def cut_file_to_pitcher(self, player):
         #print(np.any(self.cf["Pitcher"].values ==))
         self.cf = self.cf[self.cf["Pitcher"].values==player]
+
+    def cut_file_to_listof_pitcher(self, player):
+        #print(np.any(self.cf["Pitcher"].values ==))
+        ind = []
+        for p in player:
+            ind += (np.where(self.cf["Pitcher"].values==p)[0]).tolist()
+        self.cf = self.cf.iloc[ind]
+        # print(self.cf.values.shape)
 
     def set_labels(self, pitchType):
         self.label = (self.cf["Pitch Type"]==pitchType).values.astype(float)
