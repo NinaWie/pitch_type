@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import scipy as sp
 import scipy.stats
+import json
 
 import tflearn
 from tflearn import DNN
@@ -14,15 +15,20 @@ from model import Model
 from run_thread import Runner
 from test import *
 
-import shutil
 
-PATH = "cf"
+# TO GET PARAMETERS FOR PREPROCESSING FOR TESTING:
+# with open(save_path+'_preprocessing.json', "r") as fin:
+#     dic = json.load(fin)
+
+# TODO: Write something like PATH = dic["path"] and so on
+
+PATH = "sv"
 CUT_OFF_Classes = 10
 leaky_relu = lambda x: tf.maximum(0.2*x, x)
 align = False
 normalize = True
 position = "Windup"
-save_path = "saved_models/modelCarlosAllcf"
+save_path = "saved_models/modelPitchTypeSVwindup"
 unify_classes = True
 head_out = True
 
@@ -38,11 +44,17 @@ if position is not None:
     prepro.select_movement(position)
 
 players = []
-# players, _ = prepro.get_list_with_most("Pitcher")
-# prepro.cut_file_to_listof_pitcher(players)
+#players, _ = prepro.get_list_with_most("Pitcher")
+#prepro.cut_file_to_listof_pitcher(players)
+
+processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
+print(processing_requirements)
+with open(save_path+'_preprocessing.json', 'w') as fout:
+    json.dump(processing_requirements, fout)
+print("saved preprocessing requirements")
 
 # FOR POSITION CLASSIFICATION
-prepro.set_labels_toWindup()
+# prepro.set_labels_toWindup()
 
 if PATH is not "concat":
     data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
@@ -52,7 +64,7 @@ else:
     data = prepro.concat_with_second("sv_data.csv", None)
 
 if head_out:
-    data = data_raw[:,:,:12,:]
+    data = data[:,:,:12,:]
 
 if align:
     data = Tools.align_frames(data, prepro.get_release_frame(60, 120), 60, 40)
@@ -70,18 +82,16 @@ if unify_classes:
 print(data.shape, len(labels_string), np.unique(labels_string))
 
 
-processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
-with open(save_path+'_preprocessing.json', 'w') as fout:
-    json.dump(processing_requirements, fout)
 
-# runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
-#         act = tf.nn.relu, rate_dropout = 0,
-#         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-#         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
-#         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-#         network = "adjustable conv1d")
-#
-# runner.start()
+
+runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
+        act = tf.nn.relu, rate_dropout = 0,
+        learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+        first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
+        second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
+        network = "adjustable conv1d")
+
+runner.start()
 
 # pitches_test, out_test = test(data, "saved_models/modelPosition")
 # print(Tools.accuracy(pitches_test, labels_string))
