@@ -21,6 +21,10 @@ CUT_OFF_Classes = 10
 leaky_relu = lambda x: tf.maximum(0.2*x, x)
 align = False
 normalize = True
+position = "Windup"
+save_path = "saved_models/modelCarlosAllcf"
+unify_classes = True
+head_out = True
 
 # PREPROCESS DATA
 if PATH is "cf" or PATH is "concat":
@@ -30,26 +34,25 @@ else:
 
 prepro.remove_small_classes(CUT_OFF_Classes)
 
-prepro.select_movement("Windup")
+if position is not None:
+    prepro.select_movement(position)
 
+players = []
 # players, _ = prepro.get_list_with_most("Pitcher")
 # prepro.cut_file_to_listof_pitcher(players)
 
-# prepro.set_labels_toWindup()
+# FOR POSITION CLASSIFICATION
+prepro.set_labels_toWindup()
 
 if PATH is not "concat":
-    data_raw = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
+    data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
     # data_raw = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/carlos.npy")
     print("data loaded")
 else:
-    data_raw = prepro.concat_with_second("sv_data.csv", None)
+    data = prepro.concat_with_second("sv_data.csv", None)
 
-data = data_raw[:,:,:12,:]
-
-
-labels_string = prepro.get_labels()
-
-labels_string = Tools.labels_to_classes(labels_string)
+if head_out:
+    data = data_raw[:,:,:12,:]
 
 if align:
     data = Tools.align_frames(data, prepro.get_release_frame(60, 120), 60, 40)
@@ -57,17 +60,28 @@ if align:
 if  normalize:
      data = Tools.normalize( data)
 
+
+labels_string = prepro.get_labels()
+if unify_classes:
+    labels_string = Tools.labels_to_classes(labels_string)
+
+
+
 print(data.shape, len(labels_string), np.unique(labels_string))
 
 
-runner = Runner(data, labels_string, SAVE = "saved_models/modelCarlosAllcf", BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
-        act = tf.nn.relu, rate_dropout = 0,
-        learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-        first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
-        second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-        network = "adjustable conv1d")
+processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
+with open(save_path+'_preprocessing.json', 'w') as fout:
+    json.dump(processing_requirements, fout)
 
-runner.start()
+# runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
+#         act = tf.nn.relu, rate_dropout = 0,
+#         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+#         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
+#         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
+#         network = "adjustable conv1d")
+#
+# runner.start()
 
 # pitches_test, out_test = test(data, "saved_models/modelPosition")
 # print(Tools.accuracy(pitches_test, labels_string))
