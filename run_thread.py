@@ -236,10 +236,10 @@ class Runner(threading.Thread):
             print(loss_test, acc_test[-1], acc_balanced[-1])
             if acc_train!=[]:
                 print("acc_train: ", acc_train[-1])
-            if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
-                saver.save(sess, self.SAVE)
-                print("model saved with name", self.SAVE)
-                return pitches_test, max(acc_test)
+            # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
+            #     saver.save(sess, self.SAVE)
+            #     print("model saved with name", self.SAVE)
+            #     return pitches_test, max(acc_test)
         # AUSGABE AM ENDE
         print("\n\n\n---------------------------------------------------------------------")
         #print("NEW PARAMETERS: ", BATCHSIZE, self.EPOCHS, self.act, self.align, self.batch_nr_in_epoch, self.rate_dropout, self.learning_rate, len_train, self.n_hidden, self.nr_layers, self.network, nr_classes, nr_joints)
@@ -256,6 +256,8 @@ class Runner(threading.Thread):
         for i in range(len(labels_string_test)):
             print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
 
+        if self.SAVE!=None:
+            saver.save(sess, self.SAVE)
         return pitches_test, max(acc_test)
 
 #runner = Runner()

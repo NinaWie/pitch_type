@@ -74,9 +74,9 @@ class Preprocessor:
                     data[i,j] = data[i,j-1]
         #            c+=1
         #print("percent of missing values:", c/float(g+c))
-        self.label = self.cf["Pitch Type"].values
+        # self.label = self.cf["Pitch Type"].values
 
-        self.release_frame = self.cf['pitch_frame_index'].values
+        # self.release_frame = self.cf['pitch_frame_index'].values
 
         if save_name!=None:
             np.save(save_name, data)
@@ -104,7 +104,16 @@ class Preprocessor:
         return self.label
 
     def set_labels_toWindup(self):
-        self.label = self.cf["Pitching Position (P)"].values
+        arr = self.cf["Pitching Position (P)"].values
+        new = []
+        c=0
+        for i, lab in enumerate(arr):
+            if lab=="Windup" or lab=="Stretch":
+                new.append(lab)
+            else:
+                self.cf.drop(self.cf.index[[i-c]], inplace = True)
+                c+=1
+        self.label = np.array(new)
 
     def concat_with_second(self, file2, save_name=None):
         sv = pd.read_csv(file2)
@@ -143,8 +152,8 @@ class Preprocessor:
         # print("6", self.label.shape)
 
         new = np.delete(data, redundant, axis = 0)
-        self.label = np.delete(self.cf["Pitch Type"].values, redundant, axis = 0)
-        self.release_frame = self.cf['pitch_frame_index'].values
+        # self.label = np.delete(self.cf["Pitch Type"].values, redundant, axis = 0)
+        # self.release_frame = self.cf['pitch_frame_index'].values
         #print(new.shape)
         # print("7",self.data.shape)
         # print("8", self.label.shape)
