@@ -30,12 +30,12 @@ else:
 
 prepro.remove_small_classes(CUT_OFF_Classes)
 
-# prepro.select_movement("Windup")
+prepro.select_movement("Windup")
 
 # players, _ = prepro.get_list_with_most("Pitcher")
 # prepro.cut_file_to_listof_pitcher(players)
 
-prepro.set_labels_toWindup()
+# prepro.set_labels_toWindup()
 
 if PATH is not "concat":
     data_raw = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
@@ -49,7 +49,7 @@ data = data_raw[:,:,:12,:]
 
 labels_string = prepro.get_labels()
 
-# labels_string = Tools.labels_to_classes(labels_string)
+labels_string = Tools.labels_to_classes(labels_string)
 
 if align:
     data = Tools.align_frames(data, prepro.get_release_frame(60, 120), 60, 40)
@@ -60,7 +60,7 @@ if  normalize:
 print(data.shape, len(labels_string), np.unique(labels_string))
 
 
-runner = Runner(data, labels_string, SAVE = "saved_models/modelPositionSV", BATCH_SZ=40, EPOCHS = 20, batch_nr_in_epoch = 100,
+runner = Runner(data, labels_string, SAVE = "saved_models/modelCarlosAllcf", BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
         act = tf.nn.relu, rate_dropout = 0,
         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
