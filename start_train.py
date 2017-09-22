@@ -42,7 +42,7 @@ if PATH is not "concat":
     # data_raw = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/carlos.npy")
     print("data loaded")
 else:
-    data_raw = prepro.concat_with_second("sv_data.csv", PATH+"_all_coord.npy")
+    data_raw = prepro.concat_with_second("sv_data.csv", None)
 
 data = data_raw[:,:,:12,:]
 
@@ -60,7 +60,7 @@ if  normalize:
 print(data.shape, len(labels_string), np.unique(labels_string))
 
 
-runner = Runner(data, labels_string, SAVE = "saved_models/modelPosition", BATCH_SZ=40, EPOCHS = 20, batch_nr_in_epoch = 100,
+runner = Runner(data, labels_string, SAVE = "saved_models/modelPositionSV", BATCH_SZ=40, EPOCHS = 20, batch_nr_in_epoch = 100,
         act = tf.nn.relu, rate_dropout = 0,
         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
