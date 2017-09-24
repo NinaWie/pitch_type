@@ -78,8 +78,9 @@ def handle_one(oriImg):
     b=0
     len_mul=e-b
     multiplier=multiplier[b:e]
-    heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
-    paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
+    # These are overriden later?
+    # heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
+    # paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
     toc =time.time()
     #print("handle one 2",toc-tic)
 
@@ -87,20 +88,16 @@ def handle_one(oriImg):
 
 
     for m in range(1): #len(multiplier)):
-
         tictic= time.time()
         scale = multiplier[m]
-
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-        imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
-        imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
- #       print imageToTest_padded.shape
-        feed = TORCH_CUDA(Variable(T.from_numpy(imageToTest_padded)))
-        output1,output2 = model(feed)
+
+        output1, output2 = model.evaluate(imageToTest)
+
  #       print time.time()-tictic,"first part"
         tictic=time.time()
+
         heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output2)
-        #nearest neighbors
         paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
 
         globals()['heatmap_avg_%s'%m] = heatmap[0].data

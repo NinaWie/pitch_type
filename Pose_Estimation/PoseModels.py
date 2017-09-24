@@ -1,6 +1,6 @@
 """
-Ulzee An
-9/24/2017
+@created: 9/24/2017
+@author : Ulzee An
 """
 
 import numpy as np
@@ -10,6 +10,14 @@ import torch as T
 import torch.nn as nn
 from torch.autograd import Variable
 from config_reader import config_reader
+import cv2
+import util
+
+param_, model_ = config_reader()
+
+PYTORCH_WEIGHTS_PATH = model_['pytorch_model']
+USE_GPU = param_['use_gpu']
+TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
 
 class TensorFlowModel:
     """
@@ -91,13 +99,7 @@ class PyTorchModel(nn.Module):
         self.model5_2 = model_dict['block5_2']
         self.model6_2 = model_dict['block6_2']
 
-
         # load precomputed weights
-        param_, model_ = config_reader()
-
-        PYTORCH_WEIGHTS_PATH = model_['pytorch_model']
-        USE_GPU = param_['use_gpu']
-
         self.load_state_dict(torch.load(PYTORCH_WEIGHTS_PATH))
 
         if USE_GPU: self.cuda()
@@ -105,6 +107,11 @@ class PyTorchModel(nn.Module):
         self.eval()
 
     def forward (self, x):
+        """
+        Function internally used by PyTorch.
+        This function defines how PyTorch will evaluate an example for this model.
+        """
+
         out1 = self.model0(x)
 
         out1_1 = self.model1_1(out1)
@@ -131,5 +138,19 @@ class PyTorchModel(nn.Module):
         out6_2 = self.model6_2(out6)
 
         return out6_1,out6_2
+
+    def evaluate(self, imageToTest):
+        """
+        Calculate the heatmap and paf given a single image.
+        """
+
+        imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
+        imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
+
+        feed = TORCH_CUDA(Variable(T.from_numpy(imageToTest_padded)))
+
+        output1, output2 = self(feed)
+
+        return output1, output2
 
 AvailableModels = { 'tensorflow': TensorFlowModel, 'pytorch': PyTorchModel }
