@@ -6,3 +6,4 @@ logs
 *.ipynb_checkpoints*
 Pose_Estimation/atl
 Pose_Estimation/out_joints
+*.h5
