@@ -29,7 +29,8 @@ bbox_ratio = 0.25
 tensorflow_model = './model/keras/model.h5'
 pytorch_model = './model/pose_model.pth'
 caffemodel = './model/_trained_COCO/pose_iter_440000.caffemodel'
-use_model = 'pytorch' # [tensorflow, pytorch, caffe]
+# use_model = 'pytorch' # [tensorflow, pytorch, caffe]
+use_model = 'tensorflow' # [tensorflow, pytorch, caffe]
 
 deployFile = './model/_trained_COCO/pose_deploy.prototxt'
 

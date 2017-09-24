@@ -89,16 +89,12 @@ def handle_one(oriImg):
 
     for m in range(1): #len(multiplier)):
         tictic= time.time()
-        scale = multiplier[m]
-        imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
-        output1, output2 = model.evaluate(imageToTest)
+        (output1, output2), (heatmap, paf) = model.evaluate(oriImg, scale=multiplier[m])
 
  #       print time.time()-tictic,"first part"
         tictic=time.time()
 
-        heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output2)
-        paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
 
         globals()['heatmap_avg_%s'%m] = heatmap[0].data
         globals()['paf_avg_%s'%m] = paf[0].data

@@ -3,6 +3,7 @@
 @author : Ulzee An
 """
 
+# PyTorch dependencies
 import numpy as np
 from torch import np
 import torch
@@ -13,9 +14,25 @@ from config_reader import config_reader
 import cv2
 import util
 
+
+# Keras/TF dependencies
+import keras
+from keras.models import Sequential
+from keras.models import Model
+from keras.layers import Input, Dense, Activation
+from keras.layers.convolutional import Conv2D
+from keras.layers.pooling import MaxPooling2D
+from keras.layers.normalization import BatchNormalization
+from keras.layers.merge import Concatenate
+from config_reader import config_reader
+import scipy
+import tensorflow as tf
+from keras import backend as K
+
 param_, model_ = config_reader()
 
 PYTORCH_WEIGHTS_PATH = model_['pytorch_model']
+TENSORFLOW_WEIGHTS_PATH = model_['tensorflow_model']
 USE_GPU = param_['use_gpu']
 TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
 
@@ -26,7 +43,144 @@ class TensorFlowModel:
     """
 
     def __init__(self):
-        pass
+        self.session = tf.Session()
+        K.set_session(self.session)
+
+        def relu(x):
+            return Activation('relu')(x)
+
+        def conv(x, nf, ks, name):
+            x1 = Conv2D(nf, (ks, ks), padding='same', name=name)(x)
+            return x1
+
+        def pooling(x, ks, st, name):
+            x = MaxPooling2D((ks, ks), strides=(st, st), name=name)(x)
+            return x
+
+        def vgg_block(x):
+
+            # Block 1
+            x = conv(x, 64, 3, "conv1_1")
+            x = relu(x)
+            x = conv(x, 64, 3, "conv1_2")
+            x = relu(x)
+            x = pooling(x, 2, 2, "pool1_1")
+
+            # Block 2
+            x = conv(x, 128, 3, "conv2_1")
+            x = relu(x)
+            x = conv(x, 128, 3, "conv2_2")
+            x = relu(x)
+            x = pooling(x, 2, 2, "pool2_1")
+
+            # Block 3
+            x = conv(x, 256, 3, "conv3_1")
+            x = relu(x)
+            x = conv(x, 256, 3, "conv3_2")
+            x = relu(x)
+            x = conv(x, 256, 3, "conv3_3")
+            x = relu(x)
+            x = conv(x, 256, 3, "conv3_4")
+            x = relu(x)
+            x = pooling(x, 2, 2, "pool3_1")
+
+            # Block 4
+            x = conv(x, 512, 3, "conv4_1")
+            x = relu(x)
+            x = conv(x, 512, 3, "conv4_2")
+            x = relu(x)
+
+            # Additional non vgg layers
+            x = conv(x, 256, 3, "conv4_3_CPM")
+            x = relu(x)
+            x = conv(x, 128, 3, "conv4_4_CPM")
+            x = relu(x)
+
+            return x
+
+        def stage1_block(x, num_p, branch):
+
+            # Block 1
+            x = conv(x, 128, 3, "conv5_1_CPM_L%d" % branch)
+            x = relu(x)
+            x = conv(x, 128, 3, "conv5_2_CPM_L%d" % branch)
+            x = relu(x)
+            x = conv(x, 128, 3, "conv5_3_CPM_L%d" % branch)
+            x = relu(x)
+            x = conv(x, 512, 1, "conv5_4_CPM_L%d" % branch)
+            x = relu(x)
+            x = conv(x, num_p, 1, "conv5_5_CPM_L%d" % branch)
+
+            return x
+
+        def stageT_block(x, num_p, stage, branch, prefix='Heatmap'):
+
+            # Block 1
+            with tf.name_scope('%sBlock' % (prefix)):
+                x = conv(x, 128, 7, "Mconv1_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, 128, 7, "Mconv2_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, 128, 7, "Mconv3_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, 128, 7, "Mconv4_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, 128, 7, "Mconv5_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, 128, 1, "Mconv6_stage%d_L%d" % (stage, branch))
+                x = relu(x)
+                x = conv(x, num_p, 1, "Mconv7_stage%d_L%d" % (stage, branch))
+
+            return x
+
+        input_shape = (None,None,3)
+        img_input = Input(shape=input_shape)
+
+        stages = 6
+        np_branch1 = 38
+        np_branch2 = 19
+
+        # VGG
+        with tf.name_scope('VggConvLayer'):
+            stage0_out = vgg_block(img_input)
+
+        # stage 1
+        with tf.name_scope('DualLayer%d' % (1)):
+            stage1_branch1_out = stage1_block(stage0_out, np_branch1, 1)
+            stage1_branch2_out = stage1_block(stage0_out, np_branch2, 2)
+            x = Concatenate()([stage1_branch1_out, stage1_branch2_out, stage0_out])
+
+        # stage t >= 2
+        for sn in range(2, stages + 1):
+            with tf.name_scope('DualLayer%d' % (sn)):
+                stageT_branch1_out = stageT_block(x, np_branch1, sn, 1, prefix='Heat')
+                stageT_branch2_out = stageT_block(x, np_branch2, sn, 2, prefix='PAF')
+                if (sn < stages):
+                    x = Concatenate()([stageT_branch1_out, stageT_branch2_out, stage0_out])
+
+        self.model = Model(img_input, [stageT_branch1_out, stageT_branch2_out])
+        self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
+
+        test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
+
+    def evaluate(self, oriImg, scale=1.0):
+        imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
+        input_img = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,0,1,2))/256 - 0.5;
+
+        output1, output2 = self.model.predict(input_img)
+
+        heatmap = np.squeeze(output2) # output 1 is heatmaps
+        heatmap = cv2.resize(heatmap, (0,0), fx=model_['stride'], fy=model_['stride'], interpolation=cv2.INTER_CUBIC)
+        heatmap = heatmap[:imageToTest_padded.shape[0]-pad[2], :imageToTest_padded.shape[1]-pad[3], :]
+        heatmap = cv2.resize(heatmap, (oriImg.shape[1], oriImg.shape[0]), interpolation=cv2.INTER_CUBIC)
+
+        paf = np.squeeze(output1) # output 0 is PAFs
+        paf = cv2.resize(paf, (0,0), fx=model_['stride'], fy=model_['stride'], interpolation=cv2.INTER_CUBIC)
+        paf = paf[:imageToTest_padded.shape[0]-pad[2], :imageToTest_padded.shape[1]-pad[3], :]
+        paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]), interpolation=cv2.INTER_CUBIC)
+
+        return (output1, output2), (heatmap, paf)
 
 class PyTorchModel(nn.Module):
     """
@@ -139,11 +293,12 @@ class PyTorchModel(nn.Module):
 
         return out6_1,out6_2
 
-    def evaluate(self, imageToTest):
+    def evaluate(self, oriImg, scale=1.0):
         """
         Calculate the heatmap and paf given a single image.
         """
 
+        imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
         imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
 
@@ -151,6 +306,9 @@ class PyTorchModel(nn.Module):
 
         output1, output2 = self(feed)
 
-        return output1, output2
+        heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output2)
+        paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
+
+        return (output1, output2), (heatmap, paf)
 
 AvailableModels = { 'tensorflow': TensorFlowModel, 'pytorch': PyTorchModel }
