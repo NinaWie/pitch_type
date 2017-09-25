@@ -94,9 +94,8 @@ def handle_one(oriImg):
  #       print time.time()-tictic,"first part"
         tictic=time.time()
 
-
-        globals()['heatmap_avg_%s'%m] = heatmap[0].data
-        globals()['paf_avg_%s'%m] = paf[0].data
+        globals()['heatmap_avg_%s'%m] = heatmap
+        globals()['paf_avg_%s'%m] = paf
         #heatmap_avg[m] = heatmap[0].data
         #paf_avg[m] = paf[0].data
   #      print 'loop', m ,' ',time.time()-tictic, "second part"

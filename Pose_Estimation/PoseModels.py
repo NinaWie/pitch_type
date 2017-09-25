@@ -161,7 +161,7 @@ class TensorFlowModel:
         self.model = Model(img_input, [stageT_branch1_out, stageT_branch2_out])
         self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
 
-        test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
+        # test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
 
     def evaluate(self, oriImg, scale=1.0):
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
@@ -183,14 +183,17 @@ class TensorFlowModel:
 
         # PyTorch outputs 1, 19, 23, 31 while Keras outputs 1, 23, 31, 19.
         # Move axes to keep dimensions consistent with existing calculations.
-        output2 = np.moveaxis(output2, 3, 1)
-        output1 = np.moveaxis(output1, 3, 1)
+        output2 = output2[0]
+        desired_scale = (oriImg.shape[0] / float(output2.shape[0]), oriImg.shape[1] / float(output2.shape[1]), 1)
+        heatmap = scipy.ndimage.interpolation.zoom(output2, desired_scale)
+        heatmap = np.moveaxis(heatmap, 2, 0)
+        heatmap = torch.from_numpy(heatmap)
 
-        desired_size = (1, 19, oriImg.shape[0], oriImg.shape[1])
-        print output2.shape
-        heatmap = torch.from_numpy(scipy.misc.imresize(output2, desired_size))
-        print heatmap.shape
-        paf = torch.from_numpy(scipy.misc.imresize(output1, desired_size))
+        output1 = output1[0]
+        paf = scipy.ndimage.interpolation.zoom(output1, desired_scale)
+        paf = np.moveaxis(paf, 2, 0)
+        paf = torch.from_numpy(paf)
+
         # heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(torch.from_numpy(output2))
         # paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(torch.from_numpy(output1))
 
@@ -326,6 +329,6 @@ class PyTorchModel(nn.Module):
         print heatmap.size() # 1, 19, 23, 31 vs 1, 23, 31, 19
         paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
 
-        return (output1, output2), (heatmap, paf)
+        return (output1, output2), (heatmap[0].data, paf[0].data)
 
 AvailableModels = { 'tensorflow': TensorFlowModel, 'pytorch': PyTorchModel }
