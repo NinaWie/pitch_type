@@ -1,3 +1,9 @@
 cf_data.csv
 Pose_Estimation/model/pose_model.pth
-logs
+*logs
+.DS_Store
+*.pyc
+*.ipynb_checkpoints*
+Pose_Estimation/atl
+Pose_Estimation/out_joints
+*.h5
