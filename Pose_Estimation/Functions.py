@@ -78,9 +78,8 @@ def handle_one(oriImg):
     b=0
     len_mul=e-b
     multiplier=multiplier[b:e]
-    # These are overriden later?
-    # heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
-    # paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
+    heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
+    paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
     toc =time.time()
     #print("handle one 2",toc-tic)
 
