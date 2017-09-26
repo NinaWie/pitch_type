@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import scipy as sp
-import scipy.stats
+#import scipy.stats
 
 class Tools:
 
@@ -31,10 +31,12 @@ class Tools:
 
     @staticmethod
     def labels_to_classes(labels):
+        print(labels[:20])
         classes = {"Fastball (4-seam)":"Fastball", "Fastball (2-seam)": "Fastball", 'Fastball (Cut)': "Fastball", 'Fastball (Split-finger)': "Fastball", "Sinker": "Fastball",
         'Curveball': "Breaking Ball", "Slider": "Breaking Ball", 'Knuckle curve':"Breaking Ball", 'Knuckleball': "Breaking Ball", "Changeup": "Changeup"}
         for uni in np.unique(labels):
             labels[labels==uni] = classes[uni]
+        print(labels[:20])
         return labels
 
 

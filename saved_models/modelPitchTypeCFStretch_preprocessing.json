@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 {"align": false, "path": "cf", "unify classes": true, "position": "Stretch", "players": [], "normalize": true}
+=======
+{"players": [], "normalize": true, "unify classes": false, "path": "cf", "position": "Stretch", "align": false}
+>>>>>>> 9c75ca975c901880657d27d6ab3275ac8c96bd46

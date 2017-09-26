@@ -42,6 +42,7 @@ class Preprocessor:
             self.cf = self.cf.drop(self.cf[self.cf["Pitch Type"]==typ].index)
         print("Removed because not enought class members: ", smaller_min, "Unknown Pitch Type")
         self.label = self.cf["Pitch Type"].values
+        self.release_frame = self.cf['pitch_frame_index'].values
 
         # print("3",self.cf.values.shape)
         # print("4", self.label.shape)
@@ -49,6 +50,7 @@ class Preprocessor:
     def select_movement(self, pitching_position):
         self.cf = self.cf[self.cf["Pitching Position (P)"]==pitching_position]
         self.label = self.cf["Pitch Type"].values
+        self.release_frame = self.cf['pitch_frame_index'].values
         print("Selected all rows with Pitching position ", pitching_position)
 
     def get_coord_arr(self, save_name=None):
@@ -89,9 +91,9 @@ class Preprocessor:
         over_min = releases[np.where(releases>mini)]
         below_max = over_min[np.where(over_min<maxi)]
         mean = np.mean(below_max)
+        releases[np.where(np.isnan(releases))] = mean
         releases[np.where(releases<=mini)] = mean
         releases[np.where(releases>=maxi)] = mean
-        releases[np.where(np.isnan(releases))] = mean
         return releases
 
 
@@ -187,7 +189,8 @@ class Preprocessor:
             ind += (np.where(self.cf["Pitcher"].values==p)[0]).tolist()
         self.cf = self.cf.iloc[ind]
         self.label = self.cf["Pitch Type"].values
+        self.release_frame = self.cf['pitch_frame_index'].values
         # print(self.cf.values.shape)
 
-    def set_labels(self, pitchType):
+    def set_labels_toOnePitchtype(self, pitchType):
         self.label = (self.cf["Pitch Type"]==pitchType).values.astype(float)

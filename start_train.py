@@ -22,14 +22,13 @@ from test import *
 
 # TODO: Write something like PATH = dic["path"] and so on
 
-PATH = "sv"
+PATH = "cf"
 CUT_OFF_Classes = 10
-leaky_relu = lambda x: tf.maximum(0.2*x, x)
 align = False
 normalize = True
-position = "Windup"
-save_path = "saved_models/modelPitchTypeSVwindup"
-unify_classes = True
+position = "Stretch"
+save_path = "saved_models/modelPitchTypeCFStretch"
+unify_classes = False
 head_out = True
 
 # PREPROCESS DATA
@@ -47,11 +46,12 @@ players = []
 #players, _ = prepro.get_list_with_most("Pitcher")
 #prepro.cut_file_to_listof_pitcher(players)
 
-processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
-print(processing_requirements)
-with open(save_path+'_preprocessing.json', 'w') as fout:
-    json.dump(processing_requirements, fout)
-print("saved preprocessing requirements")
+if save_path is not None:
+    processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
+    print(processing_requirements)
+    with open(save_path+'_preprocessing.json', 'w') as fout:
+        json.dump(processing_requirements, fout)
+    print("saved preprocessing requirements")
 
 # FOR POSITION CLASSIFICATION
 # prepro.set_labels_toWindup()
@@ -63,6 +63,8 @@ if PATH is not "concat":
 else:
     data = prepro.concat_with_second("sv_data.csv", None)
 
+
+
 if head_out:
     data = data[:,:,:12,:]
 
@@ -73,7 +75,8 @@ if  normalize:
      data = Tools.normalize( data)
 
 
-labels_string = prepro.get_labels()
+labels_string = prepro.get_release_frame(80, 105) #prepro.get_labels()
+
 if unify_classes:
     labels_string = Tools.labels_to_classes(labels_string)
 
