@@ -28,6 +28,25 @@ class Model:
         out = tf.nn.softmax(logits)
         return out, logits
 
+    def conv2d(self, net, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
+    second_conv_kernel, first_hidden_dense, second_hidden_dense):
+        if first_conv_filters!=0:
+            net = tf.layers.conv2d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, strides=2, activation=act, name="conv1")
+            # tf.summary.histogram("conv_1_layer", net)
+            net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        if second_conv_filter!=0:
+            net = tf.layers.conv2d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, name="conv4")
+            net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        shapes = net.get_shape().as_list()
+        ff = tf.reshape(net, (-1, shapes[1]*shapes[2]*shapes[3]))
+        if first_hidden_dense!=0:
+            ff = tf.layers.dense(ff, first_hidden_dense, activation = act)
+        if second_hidden_dense!=0:
+            ff = tf.layers.dense(ff, second_hidden_dense, activation = act)
+        logits = tf.layers.dense(ff, nr_classes, activation = None, name = "ff3")
+        out = tf.nn.softmax(logits)
+        return out, logits
+
     def RNN_network_tflearn(self, frames, input_size, num_classes, nr_layers, n_hidden, dropout_rate, loss = "categorical_crossentropy", act = "softmax"):
         try:
             import tflearn

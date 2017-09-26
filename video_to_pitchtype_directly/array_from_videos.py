@@ -38,13 +38,13 @@ for date in dates:
             #print(labels)
             if len(line["Pitch Type"].values)!=1:
                 print("PROBLEM: NO LABEL/ TOO MANY")
-		print(line["Pitch Type"].values)
-		continue
+                print(line["Pitch Type"].values)
+                continue
             else:
-		labels.append(line["Pitch Type"].values[0])
-	    for i in open(input_dir+f+".dat").readlines():
-                datContent=ast.literal_eval(i)
+                labels.append(line["Pitch Type"].values[0])
 
+            for i in open(input_dir+f+".dat").readlines():
+                datContent=ast.literal_eval(i)
             bottom_p=datContent['Pitcher']['bottom']
             left_p=datContent['Pitcher']['left'] +30
             right_p=datContent['Pitcher']['right']-30

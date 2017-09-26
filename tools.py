@@ -7,7 +7,7 @@ import scipy.stats
 class Tools:
 
     @staticmethod
-    def normalize(data):
+    def normalize_by_frame(data):
         """
         normalizes across frames - axix to zero mean and standard deviation
         """
@@ -17,6 +17,17 @@ class Tools:
         res = np.asarray([(data[:,i]-means)/(std+0.000001) for i in range(len(data[0]))])
         data_new = np.swapaxes(res, 0,1)
         return data_new
+
+    @staticmethod
+    def normalize(data):
+        """
+        normalizes across frames - axix to zero mean and standard deviation
+        """
+        M,N, nr_joints,_ = data.shape
+        means = np.array([np.mean(ex) for ex in data])
+        std = np.array([np.std(ex) for ex in data])
+        data_new = [(data[i]-means[i])/(std[i]+0.000001) for i in range(len(data))]
+        return np.array(data_new)
 
     @staticmethod
     def renormalize(data, means, std, one_pitch=None):
@@ -144,6 +155,12 @@ class Tools:
                             data[i,j,k,0] = data[i,ind_after,k,0]
                             data[i,j,k,1] = data[i,ind_after,k,1]
             return data
+
+    @staticmethod
+    def double_data(data, labels, axis):
+        new_data = np.roll(data, 5, axis=axis)
+        new_labels = np.roll(labels, 5, axis=axis)
+        return np.append(data, new_data, axis = 0), np.append(labels, new_labels, axis = 0)
 
     @staticmethod
     def balance(data, labels):

@@ -45,7 +45,7 @@ class Runner(threading.Thread):
         threading.Thread.__init__(self)
         self.data = data
         self.labels_string = labels_string
-        self.unique  = np.unique(labels_string)
+        self.unique  = np.unique(labels_string).tolist()
         self.SAVE = SAVE
         self.BATCH_SZ=BATCH_SZ
         self.EPOCHS = EPOCHS
@@ -68,7 +68,6 @@ class Runner(threading.Thread):
 
     def run(self):
         try:
-            unique = unique.tolist()
             shutil.rmtree("/Users/ninawiedemann/Desktop/UNI/Praktikum/logs")
             print("logs removed")
         except:
@@ -162,6 +161,9 @@ class Runner(threading.Thread):
             out, logits = model.conv1dnet(x, nr_classes, training, self.rate_dropout, self.act)
         elif self.network=="conv2d(256,5,2)-conv2d(256,3)-conv2d(128,3)-conv2d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
             out, logits = model.conv2dnet(x, nr_classes, training, self.rate_dropout, self.act)
+        elif self.network=="adjustable conv2d":
+            out, logits = model.conv2d(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+            self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         else:
             print("ERROR, WRONG self.network INPUT")
 
@@ -172,7 +174,7 @@ class Runner(threading.Thread):
 
         loss_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits))
         loss_regularization = self.regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
-        loss_maximum = tf.reduce_mean(tf.reduce_max(tf.nn.relu(y-out), axis = 1))
+        # loss_maximum = tf.reduce_mean(tf.reduce_max(tf.nn.relu(y-out), axis = 1))
         loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
 
         optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
@@ -190,7 +192,7 @@ class Runner(threading.Thread):
 
         tf.summary.scalar("loss_entropy", loss_entropy)
         tf.summary.scalar("loss_regularization", loss_regularization)
-        tf.summary.scalar("loss_maximum", loss_maximum)
+        # tf.summary.scalar("loss_maximum", loss_maximum)
         tf.summary.scalar("loss", loss)
 
         merged = tf.summary.merge_all()
@@ -210,6 +212,12 @@ class Runner(threading.Thread):
                 liste = liste.flatten().astype(int)
                 yield j, x[liste], y[liste]
 
+        def batches(x, y, nr_classes, batchsize=40):
+            permute = np.random.permutation(len(x))
+            for i in range(0, len(x)-batchsize, batchsize):
+                indices = permute[i:i+batchsize]
+                yield i, x[indices], y[indices]
+
         acc_test  = []
         acc_train  = []
         acc_balanced = []
@@ -217,7 +225,7 @@ class Runner(threading.Thread):
         print("Loss", "Acc test", "Acc balanced")
         # Run session for self.EPOCHS
         for epoch in range(self.EPOCHS + 1):
-            for i, batch_x, batch_t in balanced_batches(train_x, train_t, nr_classes):
+            for i, batch_x, batch_t in batches(train_x, train_t, nr_classes):
                 summary, _ = sess.run([merged, optimizer], {x: batch_x, y: batch_t, training: True})
                 train_writer.add_summary(summary, i+self.batch_nr_in_epoch*epoch)
 
@@ -230,9 +238,9 @@ class Runner(threading.Thread):
             losses.append(np.around(loss_test, 2))
             acc_balanced.append(np.around(Tools.balanced_accuracy(pitches_test, labels_string_test),2))
             #Train Accuracy
-            out_train = sess.run(out, {x: train_x, y: train_t, training: False})
-            pitches_train = Tools.decode_one_hot(out_train, self.unique)
-            acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
+            # out_train = sess.run(out, {x: train_x, y: train_t, training: False})
+            # pitches_train = Tools.decode_one_hot(out_train, self.unique)
+            # acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
             print(loss_test, acc_test[-1], acc_balanced[-1])
             if acc_train!=[]:
                 print("acc_train: ", acc_train[-1])
