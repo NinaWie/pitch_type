@@ -35,6 +35,8 @@ def get_test_data(input_dir, f):
     if label is not None:
         data = process.get_pitcher_array(input_dir, f)
         return data[cut_off_min:cut_off_max], label-cut_off_min
+    else:
+        return None, None
 
 def testing(test_dates, restore_path):
     for date in test_dates:
@@ -46,10 +48,12 @@ def testing(test_dates, restore_path):
         for f in list_files:
             if f[-4:]==".mp4":
                 data, label = get_test_data(input_dir, f)
+                if data is None:
+                    continue
                 for elem in data:
                     output.append(elem)
                 labels.append(label)
-                break
+                # break
         break
     output = np.array(output)
     labels = np.array(labels)
@@ -65,6 +69,21 @@ def testing(test_dates, restore_path):
         print("frame index predicted: ", highest)
         #np.save("predicted_frame", data[highest])
         #np.save("all_frames", data)
+
+def testing_singlevideo(input_dir, f, restore_path):
+    data, label = get_test_data(input_dir, f)
+
+    examples, width, height = data.shape
+    data = np.reshape(data, (examples, width, height, 1))
+    print(data.shape, label)
+
+    lab, out = test(data, restore_path)
+    print([round(elem,2) for elem in out[:, 1]])
+    highest = np.argmax(out[:, 1])
+    print("frame index predicted: ", highest)
+    np.save("predicted_frame", data[highest])
+    np.save("all_frames", data)
+
 
 
 def get_train_data(dates):
