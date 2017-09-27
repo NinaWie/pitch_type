@@ -28,39 +28,6 @@ test_dates = ['2017-06-08', '2017-06-17', '2017-05-21', '2017-06-21', '2017-07-1
  '2017-06-16', '2017-04-16', '2017-05-05', '2017-04-20', '2017-05-18', '2017-06-24', '2017-06-20', '2017-05-25',
   '2017-05-17', '2017-05-04', '2017-06-05', '2017-06-06', '2017-04-17', '2017-05-22', '2017-07-18', '2017-07-14']
 
-def get_test_data_old(input_dir, f):
-    df = pd.read_csv(cf_data_path)
-    df = df[df["Player"]=="Pitcher"]
-    game_id = f[:-4]
-    line = df[df["Game"]==game_id]
-    #print(labels)
-    if len(line["pitch_frame_index"].values)!=1:
-        print("PROBLEM: NO LABEL/ TOO MANY")
-        print(line["pitch_frame_index"].values)
-        return 0, 0
-        ##print(line["Pitch Type"].values)
-    else:
-        label = (line["pitch_frame_index"].values[0])
-        print(label)
-        video_capture = cv2.VideoCapture(input_dir+f)
-        for i in open(input_dir+f+".dat").readlines():
-            datContent=ast.literal_eval(i)
-        bottom_p=datContent['Pitcher']['bottom']
-        left_p=datContent['Pitcher']['left'] +30
-        right_p=datContent['Pitcher']['right']-30
-        top_p=datContent['Pitcher']['top']
-        frames = np.zeros((167, 55, 55))
-        i = 0
-        while True:
-            ret, frame = video_capture.read()
-            if frame is None:
-                break
-            pitcher = frame[top_p:bottom_p, left_p:right_p]
-            pitcher = cv2.resize(np.mean(pitcher, axis = 2),(55, 55), interpolation = cv2.INTER_LINEAR)/255
-            frames[i]= pitcher
-            i+=1
-        data = frames[cut_off_min:cut_off_max]
-        return data, label-cut_off_min
 
 def get_test_data(input_dir, f):
     process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
@@ -79,18 +46,22 @@ def testing(test_dates, restore_path):
         for f in list_files:
             if f[-4:]==".mp4":
                 data, label = get_test_data(input_dir, f)
+                for elem in data:
+                    output.append(elem)
+                labels.append(label)
                 break
         break
-    examples, width, height = data.shape
-    data = np.reshape(data, (examples, width, height, 1))
-    print(data.shape, label)
-
+    examples, width, height = output.shape
+    data = np.reshape(output, (examples, width, height, 1))
+    print(data.shape, len(data)/30, len(labels), labels)
     lab, out = test(data, restore_path)
-    print([round(elem,2) for elem in out[:, 1]])
-    highest = np.argmax(out[:, 1])
-    print("frame index predicted: ", highest)
-    np.save("predicted_frame", data[highest])
-    np.save("all_frames", data)
+
+    for i in range(len(data)/30):
+        print([round(elem,2) for elem in out[30*i:30*(i+1), 1]])
+        highest = np.argmax(out[30*i:30*(i+1), 1])
+        print("frame index predicted: ", highest)
+        #np.save("predicted_frame", data[highest])
+        #np.save("all_frames", data)
 
 
 def get_train_data(dates):
