@@ -1,2 +1,2 @@
-model_checkpoint_path: "modelCarlosAllcf"
-all_model_checkpoint_paths: "modelCarlosAllcf"
+model_checkpoint_path: "release_model"
+all_model_checkpoint_paths: "release_model"
