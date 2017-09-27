@@ -51,12 +51,15 @@ def testing(test_dates, restore_path):
                 labels.append(label)
                 break
         break
+    output = np.array(output)
+    labels = np.array(labels)
     examples, width, height = output.shape
     data = np.reshape(output, (examples, width, height, 1))
     print(data.shape, len(data)/30, len(labels), labels)
     lab, out = test(data, restore_path)
 
     for i in range(len(data)/30):
+        print("real label:", labels[i])
         print([round(elem,2) for elem in out[30*i:30*(i+1), 1]])
         highest = np.argmax(out[30*i:30*(i+1), 1])
         print("frame index predicted: ", highest)
