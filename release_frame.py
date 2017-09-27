@@ -15,7 +15,7 @@ cf_data_path = "/scratch/nvw224/cf_data.csv"
 
 from run_thread import Runner
 from test import test
-import video_to_pitchtype_directly
+from video_to_pitchtype_directly import VideoProcessor
 
 cut_off_min = 80
 cut_off_max= 110
@@ -63,12 +63,10 @@ def get_test_data_old(input_dir, f):
         return data, label-cut_off_min
 
 def get_test_data(input_dir, f):
-    FLAGS = tf.app.flags.FLAGS
-    VideoProcessor = getattr(video_to_pitchtype_directly, FLAGS.array_from_videos)
     process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
     label = process.get_labels(f, "pitch_frame_index")
     if label is not None:
-        data = get_pitcher_array(input_dir, f)
+        data = process.get_pitcher_array(input_dir, f)
         return data[cut_off_min:cut_off_max], label-cut_off_min
 
 def testing(test_dates, restore_path):
