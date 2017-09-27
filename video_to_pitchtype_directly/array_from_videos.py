@@ -58,7 +58,7 @@ class VideoProcessor:
         else:
             return line[column].values[0]
 
-    def get_pitcher_array(self, file_path, file):
+    def get_pitcher_array(self, input_dir, f):
         video_capture = cv2.VideoCapture(input_dir+f)
         for i in open(input_dir+f+".dat").readlines():
             datContent=ast.literal_eval(i)

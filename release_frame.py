@@ -28,7 +28,7 @@ test_dates = ['2017-06-08', '2017-06-17', '2017-05-21', '2017-06-21', '2017-07-1
  '2017-06-16', '2017-04-16', '2017-05-05', '2017-04-20', '2017-05-18', '2017-06-24', '2017-06-20', '2017-05-25',
   '2017-05-17', '2017-05-04', '2017-06-05', '2017-06-06', '2017-04-17', '2017-05-22', '2017-07-18', '2017-07-14']
 
-def get_test_data(input_dir, f):
+def get_test_data_old(input_dir, f):
     df = pd.read_csv(cf_data_path)
     df = df[df["Player"]=="Pitcher"]
     game_id = f[:-4]
@@ -62,6 +62,13 @@ def get_test_data(input_dir, f):
         data = frames[cut_off_min:cut_off_max]
         return data, label-cut_off_min
 
+def get_test_data(input_dir, f):
+    process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
+    label = process.get_labels(f, "pitch_frame_index")
+    if label is not None:
+        data = get_pitcher_array(input_dir, f)
+        return data[cut_off_min:cut_off_max], label-cut_off_min
+
 def testing(test_dates, restore_path):
     for date in test_dates:
         output = []
@@ -78,7 +85,7 @@ def testing(test_dates, restore_path):
     data = np.reshape(data, (examples, width, height, 1))
     print(data.shape, label)
 
-    lab, out = test(data, save_path)
+    lab, out = test(data, restore_path)
     print([round(elem,2) for elem in out[:, 1]])
     highest = np.argmax(out[:, 1])
     print("frame index predicted: ", highest)
