@@ -63,6 +63,8 @@ def get_test_data_old(input_dir, f):
         return data, label-cut_off_min
 
 def get_test_data(input_dir, f):
+    FLAGS = tf.app.flags.FLAGS
+    VideoProcessor = getattr(video_to_pitchtype_directly, FLAGS.array_from_videos)
     process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
     label = process.get_labels(f, "pitch_frame_index")
     if label is not None:
