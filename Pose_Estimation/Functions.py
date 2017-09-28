@@ -19,6 +19,11 @@ from torch.autograd import Variable
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
 
+param_, model_ = config_reader()
+# USE_MODEL = model_['use_model']
+USE_GPU = param_['use_gpu']
+TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
+
 limb_list=['shoulder','elbow','wrist','hip','knee','ankle','Neck','eye','ear']
 player_list=['Batter','Pitcher']
 col_pitcher=['Pitcher_Right_shoulder','Pitcher_Left_shoulder','Pitcher_Right_elbow','Pitcher_Right_wrist','Pitcher_Left_elbow','Pitcher_Left_wrist','Pitcher_Right_hip','Pitcher_Right_knee','Pitcher_Right_ankle','Pitcher_Left_hip','Pitcher_Left_knee','Pitcher_Left_ankle','Pitcher_Neck','Pitcher_Right_eye','Pitcher_Right_ear','Pitcher_Left_eye','Pitcher_Left_ear']
@@ -57,7 +62,6 @@ mapIdx = [[31,32], [39,40], [33,34], [35,36], [41,42], [43,44], [19,20], [21,22]
 colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0], \
           [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], \
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
-
 
 block0  = [{'conv1_1':[3,64,3,1,1]},{'conv1_2':[64,64,3,1,1]},{'pool1_stage1':[2,2,0]},{'conv2_1':[64,128,3,1,1]},{'conv2_2':[128,128,3,1,1]},{'pool2_stage1':[2,2,0]},{'conv3_1':[128,256,3,1,1]},{'conv3_2':[256,256,3,1,1]},{'conv3_3':[256,256,3,1,1]},{'conv3_4':[256,256,3,1,1]},{'pool3_stage1':[2,2,0]},{'conv4_1':[256,512,3,1,1]},{'conv4_2':[512,512,3,1,1]},{'conv4_3_CPM':[512,256,3,1,1]},{'conv4_4_CPM':[256,128,3,1,1]}]
 
@@ -153,11 +157,9 @@ class pose_model(nn.Module):
 
 model = pose_model(models)
 model.load_state_dict(torch.load(weight_name))
-model.cuda()
+TORCH_CUDA(model)
 model.float()
 model.eval()
-
-param_, model_ = config_reader()
 
 def handle_one(oriImg):
     tic = time.time()
@@ -435,30 +437,25 @@ def player_localization(df,frame,player,old_array):
 
 
 
-def continuity(df_res,player):
-    tic = time.time()
-    temp=df_res[player+'_player']
-    mat=np.zeros([18,2,len(temp)])
+def continuity(df_res, player, num_joints=18):
+    mat = np.array(df_res[player+'_player'].values)
+    mat = np.stack(mat) # seems necessary because DataFrame does not return a pure np matrix
 
-    for i in range(len(temp)):
-        mat[:,:,i]=temp.iloc[i]#.tolist()
-    for limb in range(17):
-        for xy in range(2):
-            for i in range(mat.shape[2]):
-                not_zer = np.logical_not(mat[limb,xy,:]==0)
-                indices = np.arange(len(mat[limb,xy,:]))
-                try :
-                    mat[limb,xy,:]=np.round(np.interp(indices, indices[not_zer], mat[limb,xy,:][not_zer]),1)
-                    # from scipy.interpolate import interp1d
-                    # f = interpld(indices[not_zer], mat[limb,xy,:][not_zer])
-                    # mat[limb, xy, :]  = np.round(f(indices), 1)
-                except ValueError:
-                    continue
+    for limb in range(num_joints):
+        for xy in [0, 1]: # x and y coord dimension
+            # TODO: Examine any performance degradation from calling ':' on primary dimension.
+            values = mat[:, limb, xy]
+            not_zer = np.logical_not(values == 0)
+            indices = np.arange(len(values))
 
-    for i in range(mat.shape[2]):
-        df_res[player+'_player'][i]=mat[:,:,i].tolist()
-    toc = time.time()
-    print("Time for continuity ", toc-tic)
+            if not any(not_zer): # everything is zero, so can't interpolate
+                mat[:, limb, xy] = 0
+            else:
+                mat[:, limb, xy] = np.round(
+                    np.interp(indices, indices[not_zer], values[not_zer]),
+                    1)
+    for frame_ii in range(mat.shape[2]):
+        df_res[player+'_player'][frame_ii] = mat[frame_ii, :, :].tolist()
     return df_res
 
 
