@@ -17,10 +17,10 @@ from run_thread import Runner
 from test import test
 from video_to_pitchtype_directly import VideoProcessor
 
-cut_off_min = 80
-cut_off_max= 110
+cut_off_min = 10
+cut_off_max= 90
 
-dates = ["2017-04-15", "2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07",
+dates = ["2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07",
  "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17", "2017-04-14", "2017-04-18",
   "2017-05-02", "2017-05-06", "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16"]
 
@@ -94,8 +94,9 @@ def get_train_data(dates):
     pos = []
     neg = []
     for date in dates:
+	print(date)
         arr = np.load(path_output+"array_videos_"+date+".npy")[:, cut_off_min:cut_off_max, :, :]
-        lab =  np.load(path_output+"labels_firstMove_"+date+".npy")
+        lab =  np.load(path_output+"label_firstMove_"+date+".npy")
         for i, pitch in enumerate(arr):
             rel = lab[i]
             if rel>cut_off_min and rel<cut_off_max and not np.isnan(rel):
@@ -107,17 +108,18 @@ def get_train_data(dates):
                     neg.append(elem)
             else:
                 print("false", rel)
+	#break
                 #print(pitch.shape, pos[-1].shape, neg[-1].shape)
     print(np.array(pos).shape, np.array(neg).shape)
 
-    pos = pos[93:]
+    #pos = pos[93:]
 
     labels = np.ones((len(pos)), dtype=np.int).tolist()+np.zeros((len(neg)), dtype=np.int).tolist()
     print(len(pos), len(neg), len(labels))
     data = np.append(np.array(pos), np.array(neg), axis = 0)
-    # np.save("positive.npy", np.array(pos))
-    # print("positive saved")
-    #np.save("negative.npy", np.array(neg)[:10])
+    np.save("/scratch/nvw224/positive.npy", np.array(pos)[:100])
+    print("positive saved")
+    np.save("/scratch/nvw224/negative.npy", np.array(neg)[:100])
     examples, width, height = data.shape
     data = np.reshape(data, (examples, width, height, 1))
     print(data.shape)
@@ -133,16 +135,20 @@ def training(dates, save_path):
             network = "adjustable conv2d")
     runner.start()
 
-process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
+def save_firstmovement_labels():
+	process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
+	for date in dates:
+	    labels = []
+	    input_dir= path_input+"/"+date+"/center field/"
+	    list_files = listdir(input_dir)
+	    print(date)
+	    for f in list_files:
+	        if f[-4:]==".mp4":
+	            labels.append(process.get_labels(f, "first_movement_frame_index"))
+	    np.save(path_output+"label_firstMove_"+date+".npy", np.array(labels))
+	    print("saved")
 for date in dates:
-    labels = []
-    input_dir= path_input+"/"+date+"/center field/"
-    list_files = listdir(input_dir)
-    print(date)
-    for f in list_files:
-        if f[-4:]==".mp4":
-            labels.append(process.get_labels(f, "first_movement_frame_index"))
-    np.save(path_output+"label_firstMove_"+date+".npy", np.array(labels))
-
-# training(dates, "/scratch/nvw224/pitch_type/saved_models/firstMove_model")
+	print(date)
+	print((np.load(path_output+"array_videos_"+date+".npy")).shape)
+training(dates, "/scratch/nvw224/pitch_type/saved_models/firstMove_model")
 # testing(test_dates, "/scratch/nvw224/pitch_type/saved_models/release_model")

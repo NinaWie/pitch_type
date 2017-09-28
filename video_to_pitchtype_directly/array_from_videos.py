@@ -12,7 +12,8 @@ class VideoProcessor:
 
     def __init__(self, path_input="videos/atl", df_path = "cf_data.csv", resize_width = 55, resize_height = 55):
         self.path_input=path_input
-        self.df_path = df_path
+	df = pd.read_csv(df_path)
+        self.df = df[df["Player"]=="Pitcher"]
         self.resize_width = resize_width
         self.resize_height = resize_height
 #e.g. path_input_dat = "/Volumes/Nina Backup/videos/atl/2017-04-14/center field/490251-0f308987-60b4-480c-89b7-60421ab39106.mp4.dat"
@@ -45,11 +46,9 @@ class VideoProcessor:
                 print("arrays saved on path ", save_path, date)
 
     def get_labels(self, f, column):
-        df = pd.read_csv(self.df_path)
-        df = df[df["Player"]=="Pitcher"]
         game_id = f[:-4]
         print(f, game_id)
-        line = df[df["Game"]==game_id]
+        line = self.df[self.df["Game"]==game_id]
         #print(labels)
         if len(line[column].values)!=1:
             print("PROBLEM: NO LABEL/ TOO MANY")

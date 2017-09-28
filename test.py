@@ -9,13 +9,15 @@ def test(data, restore_file):
     data must be normalized before and aligned if desired
     returns labels
     """
-    tf.reset_default_graph()
+    #tf.reset_default_graph()
     #sess = tf.InteractiveSession()
 
     saver = tf.train.import_meta_graph(restore_file+'.meta')
     graph = tf.get_default_graph()
-
-    sess = tf.Session()
+    try:
+	sess = tf.InteractiveSession()
+    except:
+    	sess = tf.Session()
     saver.restore(sess, restore_file)
     out = tf.get_collection("out")[0]
     unique = tf.get_collection("unique")[0]
