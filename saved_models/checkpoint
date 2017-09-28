@@ -1,2 +1,2 @@
-model_checkpoint_path: "release_model"
-all_model_checkpoint_paths: "release_model"
+model_checkpoint_path: "modelPitchtype_new"
+all_model_checkpoint_paths: "modelPitchtype_new"
