@@ -53,7 +53,7 @@ def testing(test_dates, restore_path):
                 for elem in data:
                     output.append(elem)
                 labels.append(label)
-                # break
+                #break
         break
     output = np.array(output)
     labels = np.array(labels)
@@ -62,11 +62,15 @@ def testing(test_dates, restore_path):
     print(data.shape, len(data)/30, len(labels), labels)
     lab, out = test(data, restore_path)
 
+    right = 0
     for i in range(len(data)/30):
         print("real label:", labels[i])
         print([round(elem,2) for elem in out[30*i:30*(i+1), 1]])
         highest = np.argmax(out[30*i:30*(i+1), 1])
         print("frame index predicted: ", highest)
+        if abs(labels[i]-highest)<2:
+            right+=1
+    print("Accuracy (only 1 frame later or earlier): ", right/float(len(data)/30))
         #np.save("predicted_frame", data[highest])
         #np.save("all_frames", data)
 
