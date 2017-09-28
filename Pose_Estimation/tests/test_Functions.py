@@ -6,7 +6,7 @@ import pandas as pd
 class TestContinuity(unittest.TestCase):
     sample_player_name = 'Batter'
     sample_player_key = '%s_player' % (sample_player_name)
-    num_frames = 3
+    num_frames = 4
     num_joints = 3
 
     def setUp(self):
