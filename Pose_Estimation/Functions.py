@@ -438,32 +438,24 @@ def player_localization(df,frame,player,old_array):
 
 
 def continuity(df_res, player, num_joints=18):
-    tic = time.time()
-    temp=df_res[player+'_player']
-    mat=np.zeros([num_joints, 2, len(temp)])
+    mat = np.array(df_res[player+'_player'].values)
+    mat = np.stack(mat) # seems necessary because DataFrame does not return a pure np matrix
 
-    for i in range(len(temp)):
-        mat[:,:,i]=temp.iloc[i]#.tolist()
     for limb in range(num_joints):
-        for xy in range(2):
-            not_zer = np.logical_not(mat[limb,xy,:]==0)
-            indices = np.arange(len(mat[limb,xy,:]))
+        for xy in [0, 1]: # x and y coord dimension
+            # TODO: Examine any performance degradation from calling ':' on primary dimension.
+            values = mat[:, limb, xy]
+            not_zer = np.logical_not(values == 0)
+            indices = np.arange(len(values))
 
             if not any(not_zer): # everything is zero, so can't interpolate
-                mat[limb, xy, :] = 0
+                mat[:, limb, xy] = 0
             else:
-                mat[limb,xy,:]=np.round(np.interp(indices, indices[not_zer], mat[limb,xy,:][not_zer]),1)
-            # try :
-            #     # from scipy.interpolate import interp1d
-            #     # f = interpld(indices[not_zer], mat[limb,xy,:][not_zer])
-            #     # mat[limb, xy, :]  = np.round(f(indices), 1)
-            # except ValueError:
-            #     continue
-
-    for i in range(mat.shape[2]):
-        df_res[player+'_player'][i]=mat[:,:,i].tolist()
-    toc = time.time()
-    print("Time for continuity ", toc-tic)
+                mat[:, limb, xy] = np.round(
+                    np.interp(indices, indices[not_zer], values[not_zer]),
+                    1)
+    for frame_ii in range(mat.shape[2]):
+        df_res[player+'_player'][frame_ii] = mat[frame_ii, :, :].tolist()
     return df_res
 
 
