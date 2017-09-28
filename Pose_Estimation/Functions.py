@@ -448,13 +448,17 @@ def continuity(df_res, player, num_joints=18):
         for xy in range(2):
             not_zer = np.logical_not(mat[limb,xy,:]==0)
             indices = np.arange(len(mat[limb,xy,:]))
-            try :
+
+            if not any(not_zer): # everything is zero, so can't interpolate
+                mat[limb, xy, :] = 0
+            else:
                 mat[limb,xy,:]=np.round(np.interp(indices, indices[not_zer], mat[limb,xy,:][not_zer]),1)
-                # from scipy.interpolate import interp1d
-                # f = interpld(indices[not_zer], mat[limb,xy,:][not_zer])
-                # mat[limb, xy, :]  = np.round(f(indices), 1)
-            except ValueError:
-                continue
+            # try :
+            #     # from scipy.interpolate import interp1d
+            #     # f = interpld(indices[not_zer], mat[limb,xy,:][not_zer])
+            #     # mat[limb, xy, :]  = np.round(f(indices), 1)
+            # except ValueError:
+            #     continue
 
     for i in range(mat.shape[2]):
         df_res[player+'_player'][i]=mat[:,:,i].tolist()
