@@ -482,10 +482,13 @@ def mix_right_left(df,index,player):
 
 def df_coordinates(df,centerd):
     tic('DF_COORDINATES')
+
+    tic('LOCALIZATION_PREPROC')
     df.sort_values(by='Frame',ascending=1,inplace=True)
     df.reset_index(inplace=True,drop=True)
     df['Batter_player']=df['Batter'].copy()
     df['Pitcher_player']=df['Pitcher'].copy()
+
     for player in ['Batter','Pitcher']:
         player2=player+'_player'
         center=centerd[player]
@@ -506,14 +509,19 @@ def df_coordinates(df,centerd):
 
         df[player2][0]=df[player][0][loc]
         globals()['old_array_%s'%player]=np.asarray(df[player][0][loc])
+    toc('LOCALIZATION_PREPROC')
 
+    tic('LOCALIZATION')
     for frame in df['Frame'][1:len(df)]:
         for player in ['Batter','Pitcher']:
             df,globals()['old_array_%s'%player]=player_localization(df,frame,player,globals()['old_array_%s'%player])
+    toc('LOCALIZATION')
 
+    tic('MIX_LR')
     for player in player_list:
         for index in index_list:
             df=mix_right_left(df,index,player)
+    toc('MIX_LR')
 
     tic('CONT_PITCHER')
     df=continuity(df,'Pitcher')
