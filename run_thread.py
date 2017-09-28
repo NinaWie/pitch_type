@@ -228,7 +228,7 @@ class Runner(threading.Thread):
         print("Loss", "Acc test", "Acc balanced")
         # Run session for self.EPOCHS
         for epoch in range(self.EPOCHS + 1):
-            for i, batch_x, batch_t in batches(train_x, train_t, nr_classes):
+            for i, batch_x, batch_t in balanced_batches(train_x, train_t, nr_classes):
                 summary, _ = sess.run([merged, optimizer], {x: batch_x, y: batch_t, training: True})
                 train_writer.add_summary(summary, i+self.batch_nr_in_epoch*epoch)
 
