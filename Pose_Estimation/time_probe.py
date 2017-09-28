@@ -1,7 +1,10 @@
 import time
+from config_reader import config_reader
+param_, model_ = config_reader()
+
+TIME_PRINT = param_['print_tictoc'] is '1'
 
 TIME_PROBE_ID = 0
-TIME_PROBE_PREV = None
 TIME_STACK = []
 TEXT_PADDING = 24
 FIRST_STAMP = None
@@ -25,20 +28,26 @@ def time_printout(stamp, level=0):
     accounted_percentage = 0.0
     for child in stamp.children:
         elapsed_percentage = child.elapsed / stamp.elapsed* 100
-        print child.pretty(level, elapsed_percentage)
+        if TIME_PRINT: print child.pretty(level, elapsed_percentage)
         time_printout(child, level + 1)
         accounted_percentage += elapsed_percentage
     # TODO: percentage unaccounted for
     if len(stamp.children):
         tabbing = ''.join(level * ['   '])
-        print '| %s---(%.2f%% unaccounted)' % (tabbing, 100 - accounted_percentage)
+        if TIME_PRINT: print '| %s---(%.2f%% unaccounted)' % (tabbing, 100 - accounted_percentage)
 
 def time_summary():
-    print '| TICTOC RESULTS:'
-    print '|'
+    global FIRST_STAMP, PREV_STAMP, TIME_STACK
 
-    print FIRST_STAMP.pretty()
+    if TIME_PRINT: print '| TICTOC RESULTS:'
+    if TIME_PRINT: print '|'
+
+    if TIME_PRINT: print FIRST_STAMP.pretty()
     time_printout(FIRST_STAMP, 1)
+
+    FIRST_STAMP = None
+    PREV_STAMP = None
+    TIME_STACK = []
 
 def tic(label):
     global FIRST_STAMP, PREV_STAMP

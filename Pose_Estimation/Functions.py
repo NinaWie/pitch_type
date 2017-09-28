@@ -18,6 +18,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
+from time_probe import tic, toc, time_summary
 
 param_, model_ = config_reader()
 # USE_MODEL = model_['use_model']
@@ -179,8 +180,8 @@ def handle_one(oriImg):
     b=0
     len_mul=e-b
     multiplier=multiplier[b:e]
-    heatmap_avg = torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])).cuda()
-    paf_avg = torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])).cuda()
+    heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
+    paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
     toc =time.time()
     #print("handle one 2",toc-tic)
 
@@ -196,13 +197,13 @@ def handle_one(oriImg):
         imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
         imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
  #       print imageToTest_padded.shape
-        feed = Variable(T.from_numpy(imageToTest_padded)).cuda()
+        feed = TORCH_CUDA(Variable(T.from_numpy(imageToTest_padded)))
         output1,output2 = model(feed)
  #       print time.time()-tictic,"first part"
         tictic=time.time()
-        heatmap = nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])).cuda()(output2)
+        heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output2)
         #nearest neighbors
-        paf = nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])).cuda()(output1)
+        paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
 
         globals()['heatmap_avg_%s'%m] = heatmap[0].data
         globals()['paf_avg_%s'%m] = paf[0].data
@@ -215,8 +216,8 @@ def handle_one(oriImg):
     #print 'time is %.5f'%(toc-tic)
     temp1=(heatmap_avg_0)#+heatmap_avg_1)/float(len_mul)
     temp2=(paf_avg_0)#+paf_avg_1)/float(len_mul)
-    heatmap_avg = T.transpose(T.transpose(T.squeeze(temp1),0,1),1,2).cuda()
-    paf_avg     = T.transpose(T.transpose(T.squeeze(temp2),0,1),1,2).cuda()
+    heatmap_avg = TORCH_CUDA(T.transpose(T.transpose(T.squeeze(temp1),0,1),1,2))
+    paf_avg     = TORCH_CUDA(T.transpose(T.transpose(T.squeeze(temp2),0,1),1,2))
     #heatmap_avg = T.transpose(T.transpose(T.squeeze(T.mean(heatmap_avg, 0)),0,1),1,2).cuda()
     #paf_avg     = T.transpose(T.transpose(T.squeeze(T.mean(paf_avg, 0)),0,1),1,2).cuda()
     heatmap_avg=heatmap_avg.cpu().numpy()
@@ -480,6 +481,7 @@ def mix_right_left(df,index,player):
 
 
 def df_coordinates(df,centerd):
+    tic('DF_COORDINATES')
     df.sort_values(by='Frame',ascending=1,inplace=True)
     df.reset_index(inplace=True,drop=True)
     df['Batter_player']=df['Batter'].copy()
@@ -512,7 +514,14 @@ def df_coordinates(df,centerd):
     for player in player_list:
         for index in index_list:
             df=mix_right_left(df,index,player)
-    df=continuity(df,'Pitcher')
-    df=continuity(df,'Batter')
 
+    tic('CONT_PITCHER')
+    df=continuity(df,'Pitcher')
+    toc('CONT_PITCHER')
+    tic('CONT_BATTER')
+    df=continuity(df,'Batter')
+    toc('CONT_BATTER')
+
+    toc('DF_COORDINATES')
+    time_summary()
     return df[['Frame','Pitcher_player','Batter_player']]
