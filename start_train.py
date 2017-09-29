@@ -16,12 +16,13 @@ from run_thread import Runner
 from test import *
 
 
+
 # TO GET PARAMETERS FOR PREPROCESSING FOR TESTING:
 # with open(save_path+'_preprocessing.json', "r") as fin:
 #     dic = json.load(fin)
 
-load_preprocessing_parameters = "saved_models/modelCarlos2_preprocessing.json"
-save_path = "saved_models/modelCarlos2"
+load_preprocessing_parameters = None #"saved_models/modelPitchtype_new.json"
+save_path = "saved_models/modelPitchtype_new"
 head_out = True
 CUT_OFF_Classes = 10
 
@@ -30,16 +31,15 @@ if load_preprocessing_parameters is None:
     CUT_OFF_Classes = 10
     align = False
     normalize = True
-    position = "Stretch"
+    position = None # "Stretch"
     unify_classes = False
 else:
     with open(load_preprocessing_parameters, 'r') as fin:
         params = json.load(fin)
+    print(params)
     PATH = params["path"]
     align = params["align"]
     players = params["players"]
-    if players!=[]:
-        prepro.cut_file_to_listof_pitcher(players)
     normalize = params["normalize"]
     position = params["position"]
     unify_classes = params["unify classes"]
@@ -52,6 +52,7 @@ else:
     prepro = Preprocessor("sv_data.csv")
 
 prepro.remove_small_classes(CUT_OFF_Classes)
+prepro.remove_wrong_games("490266")
 
 if position is not None:
     prepro.select_movement(position)
@@ -60,6 +61,10 @@ if load_preprocessing_parameters is None:
     players = []
     #players, _ = prepro.get_list_with_most("Pitcher")
     #prepro.cut_file_to_listof_pitcher(players)
+else:
+    players = []
+    #if players!=[]:
+    #    prepro.cut_file_to_listof_pitcher(players)
 
 if save_path is not None and load_preprocessing_parameters is None:
     processing_requirements = {"path":PATH, "align":align, "normalize":normalize, "position": position, "players":players, "unify classes": unify_classes}
@@ -70,6 +75,7 @@ if save_path is not None and load_preprocessing_parameters is None:
 
 # FOR POSITION CLASSIFICATION
 # prepro.set_labels_toWindup()
+
 
 if PATH is not "concat":
     data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
@@ -100,10 +106,10 @@ print(data.shape, len(labels_string), np.unique(labels_string))
 
 
 
-# runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 40, batch_nr_in_epoch = 100,
+# runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
 #         act = tf.nn.relu, rate_dropout = 0,
 #         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-#         first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
+#         first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
 #         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
 #         network = "adjustable conv1d")
 #
@@ -112,17 +118,17 @@ print(data.shape, len(labels_string), np.unique(labels_string))
 def save_in_csv(labels):
     dic ={}
     try:
-        old_df = pd.read_csv("pitchtypes_test.csv")
+        old_df = pd.read_csv("pitch_types.csv")
         for col in old_df.columns.tolist():
             if col[:3]!="Unn":
                 dic[col] = old_df[col].values
     except:
-        dic["play_id"] = prepro.cf["play_id"].values
+        dic["Game"] = prepro.cf["Game"].values
 
-    games_in_cf = prepro.cf["play_id"].values.tolist()
-    old_col = dic["CF3classes5players"]
+    games_in_cf = prepro.cf["Game"].values.tolist()
+    # old_col = dic["Pitchtype_3classes_5player"]
     new_col = []
-    games_in_dic = dic["play_id"]
+    games_in_dic = dic["Game"]
     #dic["new_col"]=lab
     for i in range(len(games_in_dic)):
         game = games_in_dic[i]
@@ -130,13 +136,46 @@ def save_in_csv(labels):
             ind = games_in_cf.index(game)
             new_col.append(labels[ind])
         except:
-            new_col.append(old_col[i]) #None)
+            new_col.append(None) #old_col[i]) #None)
     #print(new_col)
-    dic["CF3classes5players"] = new_col
+    dic["Combined"] = new_col
     df = pd.DataFrame.from_dict(dic)
-    df.to_csv("pitchtypes_test.csv")
+    df.to_csv("pitch_types.csv")
 
 pitches_test, out_test = test(data, save_path)
+
+#pitches_test = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/pitches_test.npy")
+#out_test = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/out_test.npy")
+
+def compare_to_superclasses(labels_new, out):
+    uniq = np.unique(labels_new)
+    # print(labels_new[:20])
+    df = pd.read_csv("pitch_types.csv")
+    superclasses = df["Pitchtype_3classes_Allplayer"]
+    assert(len(superclasses)==len(labels_new))
+    super_labels = Tools.labels_to_classes(labels_new)
+    # print(super_labels[:20])
+    not_same = np.where(super_labels!=superclasses)[0]
+    # print(not_same)
+    for i in not_same:
+        if not pd.isnull(superclasses[i]):
+            j = -2
+            while(super_labels[i]!=superclasses[i]):
+                second_best = np.argsort(out_test[i])[j]
+                # print(out_test[i])
+                # print("aus csv ", superclasses[i])
+                second_best_lab = uniq[second_best]
+                # print("label vorher", labels_new[i])
+                labels_new[i] = second_best_lab
+                # print("label nachher", labels_new[i])
+                super_labels[i] = Tools.labels_to_classes(np.array([second_best_lab]))[0]
+                j-=1
+    return labels_new
+
+#np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/pitches_test.npy",pitches_test)
+#np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/out_test.npy", out_test)
+
+pitches_test = compare_to_superclasses(pitches_test, out_test)
 save_in_csv(pitches_test)
 print(Tools.accuracy(pitches_test, labels_string))
 print("True                   Test                 ", np.unique(labels_string))
