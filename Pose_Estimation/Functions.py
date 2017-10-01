@@ -433,7 +433,7 @@ def score_coordinates(output_file='pitcher_array.json', score_file='pitcher_arra
                 for frames_i in range(len(score_data[0])):
                     for joint_i in range(len(score_data[0][0])):
                         score_xy = np.array(score_data[person_i][frames_i][joint_i])
-                        output_xy = np.array(score_data[person_i][frames_i][joint_i])
+                        output_xy = np.array(output_data[person_i][frames_i][joint_i])
                         sum_dist_l2 += np.linalg.norm(score_xy - output_xy)
                         counter += 1
 
