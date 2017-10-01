@@ -19,6 +19,7 @@ from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
 from time_probe import tic, toc, time_summary
 from PoseModels import AvailableModels
+import os, json
 
 param_, model_ = config_reader()
 USE_MODEL = model_['use_model']
@@ -408,3 +409,34 @@ def df_coordinates(df,centerd):
     toc('DF_COORDINATES')
     time_summary()
     return df[['Frame','Pitcher_player','Batter_player']]
+
+def score_coordinates(output_file='pitcher_array.json', score_file='pitcher_array_score.json'):
+    print '| Score:'
+    files = os.listdir('.')
+
+    if score_file not in files:
+        print 'Score "%s.json" not available so skipping accuracy scoring.' % (score_file)
+        return
+
+    with open(score_file) as fl:
+        score_data = json.load(fl)
+        # print len(score_data), len(score_data[0]), len(score_data[0][0])
+
+        with open(output_file) as fl2:
+            output_data = json.load(fl2)
+
+            assert len(score_data[0]) is len(output_data[0]) # should have same number of frames if from same video
+
+            sum_dist_l2 = 0.0
+            counter = 0
+            for person_i in range(len(score_data)):
+                for frames_i in range(len(score_data[0])):
+                    for joint_i in range(len(score_data[0][0])):
+                        score_xy = np.array(score_data[person_i][frames_i][joint_i])
+                        output_xy = np.array(score_data[person_i][frames_i][joint_i])
+                        sum_dist_l2 += np.linalg.norm(score_xy - output_xy)
+                        counter += 1
+
+            print '|    ("%s" against "%s")' %(output_file, score_file)
+            print '|    Distance: %.4f' % (sum_dist_l2)
+            print '|    Avg     : %.4f' % (sum_dist_l2 / float(counter))

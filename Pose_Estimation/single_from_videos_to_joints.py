@@ -7,7 +7,7 @@ from os.path import isfile, join
 from os import listdir
 import codecs, json
 
-from Functions import handle_one,df_coordinates
+from Functions import handle_one, df_coordinates, score_coordinates
 import ast
 
 
@@ -74,8 +74,12 @@ if True: #__name__ == "__main__":
             pitcher_array[0,i,:,:] = pitcher_array[0,i-1,:,:]
     print("shape", pitcher_array.shape)
     b = pitcher_array.tolist()
-    file_path = "pitcher_array.json" 
-    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)     
+    file_path = "pitcher_array.json"
+    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)
+
+    score_coordinates()
+
+
 # serialized = json.dumps(memfile.read().decode('latin-1'))
 #np.save("pitcher_arr", pitcher_array)
 
