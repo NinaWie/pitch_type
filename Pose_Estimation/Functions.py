@@ -8,7 +8,6 @@ Created on Thu Jun 22 16:02:39 2017
 
 import numpy as np
 import time
-import cv2
 import math
 from torch import np
 import util
