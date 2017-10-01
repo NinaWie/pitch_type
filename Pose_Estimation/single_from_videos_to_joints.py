@@ -1,4 +1,3 @@
-import cv2
 import time
 from torch import np
 import argparse
@@ -7,9 +6,9 @@ from os.path import isfile, join
 from os import listdir
 import codecs, json
 
-from Functions import handle_one,df_coordinates
+from Functions import handle_one, df_coordinates, score_coordinates
 import ast
-
+import cv2
 
 parser = argparse.ArgumentParser(description='Pose Estimation Baseball')
 parser.add_argument('input_file', metavar='DIR', # Video file to be processed
@@ -60,6 +59,7 @@ if True: #__name__ == "__main__":
         batter = frame[top_b:bottom_b, left_b:right_b]
         df.loc[p]=[int(p),handle_one(pitcher),handle_one(batter) ]
         p+=1
+        # if p is 2: break
     print("Time to read in video and handle one:", time.time()-tic1)
     #print("nach handle one shape ", df.loc[p-1]["Pitcher"].shape)
     #try:
@@ -74,8 +74,12 @@ if True: #__name__ == "__main__":
             pitcher_array[0,i,:,:] = pitcher_array[0,i-1,:,:]
     print("shape", pitcher_array.shape)
     b = pitcher_array.tolist()
-    file_path = "pitcher_array.json" 
-    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)     
+    file_path = "pitcher_array.json"
+    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)
+
+    score_coordinates()
+
+
 # serialized = json.dumps(memfile.read().decode('latin-1'))
 #np.save("pitcher_arr", pitcher_array)
 
