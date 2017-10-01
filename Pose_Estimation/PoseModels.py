@@ -161,6 +161,14 @@ class TensorFlowModel:
         self.model = Model(img_input, [stageT_branch1_out, stageT_branch2_out])
         self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
 
+
+        self.raw_heatmap = tf.placeholder(tf.float32, shape=(None, None, None, 19))
+        self.raw_paf = tf.placeholder(tf.float32, shape=(None, None, None, 38))
+        self.resize_size = tf.placeholder(tf.int32, shape=(2))
+
+        self.resize_heatmap = tf.transpose(tf.image.resize_images(self.raw_heatmap, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
+        self.resize_paf = tf.transpose(tf.image.resize_images(self.raw_paf, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
+
         # test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
 
     def evaluate(self, oriImg, scale=1.0):
@@ -171,25 +179,14 @@ class TensorFlowModel:
         output1, output2 = self.model.predict(input_img)
 
         # Replicating bilinear upsampling to heatmaps procedure.
-        output2 = np.moveaxis(output2, 3, 1)
-        heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(Variable(torch.from_numpy(output2)))
-        heatmap = heatmap[0].data
+        resize_dict = {
+            self.resize_size: [oriImg.shape[0], oriImg.shape[1]],
+            self.raw_heatmap: output2,
+            self.raw_paf: output1,
+        }
 
-        output1 = np.moveaxis(output1, 3, 1)
-        paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(Variable(torch.from_numpy(output1)))
-        paf = paf[0].data
-
-        # Implementation without torch, but can be slow b/c numpy does not use cuda...
-        # output2 = output2[0]
-        # desired_scale = (oriImg.shape[0] / float(output2.shape[0]), oriImg.shape[1] / float(output2.shape[1]), 1)
-        # heatmap = scipy.ndimage.interpolation.zoom(output2, desired_scale, order=1)
-        # heatmap = np.moveaxis(heatmap, 2, 0)
-        # heatmap = torch.from_numpy(heatmap)
-
-        # output1 = output1[0]
-        # paf = scipy.ndimage.interpolation.zoom(output1, desired_scale, order=1)
-        # paf = np.moveaxis(paf, 2, 0)
-        # paf = torch.from_numpy(paf)
+        heatmap, paf = self.session.run([self.resize_heatmap, self.resize_paf], feed_dict=resize_dict)
+        heatmap, paf = heatmap[0], paf[0]
 
         return (output1, output2), (heatmap, paf)
 
@@ -320,6 +317,6 @@ class PyTorchModel(nn.Module):
         heatmap = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output2)
         paf = TORCH_CUDA(nn.UpsamplingBilinear2d((oriImg.shape[0], oriImg.shape[1])))(output1)
 
-        return (output1, output2), (heatmap[0].data, paf[0].data)
+        return (output1, output2), (heatmap[0].data.cpu().numpy(), paf[0].data.cpu().numpy())
 
 AvailableModels = { 'tensorflow': TensorFlowModel, 'pytorch': PyTorchModel }

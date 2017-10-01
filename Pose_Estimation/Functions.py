@@ -9,7 +9,7 @@ Created on Thu Jun 22 16:02:39 2017
 import numpy as np
 import time
 import math
-from torch import np
+# from torch import np
 import util
 import torch
 import torch as T
@@ -75,8 +75,8 @@ def handle_one(oriImg):
     b=0
     len_mul=e-b
     multiplier=multiplier[b:e]
-    heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
-    paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
+    # heatmap_avg = TORCH_CUDA(torch.zeros((len(multiplier),19,oriImg.shape[0], oriImg.shape[1])))
+    # paf_avg = TORCH_CUDA(torch.zeros((len(multiplier),38,oriImg.shape[0], oriImg.shape[1])))
 
     for m in range(1): #len(multiplier)):
         scale = multiplier[m]
@@ -89,14 +89,12 @@ def handle_one(oriImg):
         #paf_avg[m] = paf[0].data
   #      print 'loop', m ,' ',time.time()-tictic, "second part"
 
-    temp1=(heatmap_avg_0)#+heatmap_avg_1)/float(len_mul)
-    temp2=(paf_avg_0)#+paf_avg_1)/float(len_mul)
-    heatmap_avg = TORCH_CUDA(T.transpose(T.transpose(T.squeeze(temp1),0,1),1,2))
-    paf_avg     = TORCH_CUDA(T.transpose(T.transpose(T.squeeze(temp2),0,1),1,2))
-    #heatmap_avg = T.transpose(T.transpose(T.squeeze(T.mean(heatmap_avg, 0)),0,1),1,2).cuda()
-    #paf_avg     = T.transpose(T.transpose(T.squeeze(T.mean(paf_avg, 0)),0,1),1,2).cuda()
-    heatmap_avg=heatmap_avg.cpu().numpy()
-    paf_avg    = paf_avg.cpu().numpy()
+    heatmap_avg = np.swapaxes(np.swapaxes(np.squeeze(heatmap_avg_0), 0, 1), 1, 2)
+    paf_avg = np.swapaxes(np.swapaxes(np.squeeze(paf_avg_0), 0, 1), 1, 2)
+    # print paf_avg.shape
+    # paf_avg     = TORCH_CUDA(T.transpose(T.transpose(T.squeeze(paf_avg_0),0,1),1,2))
+    # print paf_avg.size()
+    # raw_input(':')
     all_peaks = []
     peak_counter = 0
     #print '5bis', time.time()-toc
