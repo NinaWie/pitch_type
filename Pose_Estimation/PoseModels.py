@@ -4,16 +4,10 @@
 """
 
 # PyTorch dependencies
-import numpy as np
-from torch import np
 import torch
 import torch as T
 import torch.nn as nn
 from torch.autograd import Variable
-from config_reader import config_reader
-import cv2
-import util
-
 
 # Keras/TF dependencies
 import keras
@@ -24,17 +18,22 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.merge import Concatenate
-from config_reader import config_reader
-import scipy
 import tensorflow as tf
 from keras import backend as K
 
-param_, model_ = config_reader()
+# Common deps
+import numpy as np
+import cv2
+import util
 
+from config_reader import config_reader
+param_, model_ = config_reader()
 PYTORCH_WEIGHTS_PATH = model_['pytorch_model']
 TENSORFLOW_WEIGHTS_PATH = model_['tensorflow_model']
+USE_MODEL = model_['use_model']
 USE_GPU = param_['use_gpu']
 TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
+
 
 class TensorFlowModel:
     """
@@ -169,7 +168,7 @@ class TensorFlowModel:
         self.resize_heatmap = tf.transpose(tf.image.resize_images(self.raw_heatmap, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
         self.resize_paf = tf.transpose(tf.image.resize_images(self.raw_paf, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
 
-        # test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
+        test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
 
     def evaluate(self, oriImg, scale=1.0):
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)

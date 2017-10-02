@@ -51,6 +51,8 @@ if True: #__name__ == "__main__":
     p=0
     while True:
 # Capture frame-by-frame
+        if p % 10 is 0:
+            print 'Frame #:', p
         ret, frame = video_capture.read()
         if frame is None:
             print("end of video capture")
