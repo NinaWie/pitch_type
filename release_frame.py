@@ -39,9 +39,9 @@ def get_test_data(input_dir, f):
         return None, None
 
 def testing(test_dates, restore_path):
-    for date in test_dates:
-        output = []
-        labels = []
+    output = []
+    labels = []
+    for date in test_dates[1:]:
         input_dir= path_input+"/"+date+"/center field/"
         list_files = listdir(input_dir)
         print(date)
@@ -54,7 +54,7 @@ def testing(test_dates, restore_path):
                     output.append(elem)
                 labels.append(label)
                 #break
-        break
+  #      break
     output = np.array(output)
     labels = np.array(labels)
     examples, width, height = output.shape
