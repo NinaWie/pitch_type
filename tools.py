@@ -207,6 +207,15 @@ class Tools:
         return acc
 
     @staticmethod
+    def accuracy_in_range(out, ground_truth, r):
+        assert(len(out)==len(ground_truth))
+        res = 0
+        for i in range(len(out)):
+            if abs(out[i]-ground_truth[i])<r:
+                res+=1
+        return res/float(len(out))
+
+    @staticmethod
     def balanced_accuracy(out_list, ground_truth_list):
         acc = Tools.accuracy_per_class(out_list, ground_truth_list)
         frequ = np.array(list(acc.values()))

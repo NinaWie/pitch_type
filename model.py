@@ -12,7 +12,7 @@ class Model:
         shape = x.get_shape().as_list()
         net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
         if first_conv_filters!=0:
-            net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, strides=2, activation=act, name="conv1")
+            net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, name="conv1")
             # tf.summary.histogram("conv_1_layer", net)
             net = tf.layers.dropout(net, rate=rate_dropout, training=training)
         if second_conv_filter!=0:
@@ -25,6 +25,23 @@ class Model:
         if second_hidden_dense!=0:
             ff = tf.layers.dense(ff, second_hidden_dense, activation = act)
         logits = tf.layers.dense(ff, nr_classes, activation = None, name = "ff3")
+        out = tf.nn.softmax(logits)
+        return out, logits
+
+    def conv1stmove(self, x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
+    second_conv_kernel, first_hidden_dense, second_hidden_dense):
+        shape = x.get_shape().as_list()
+        net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
+        net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, padding = "SAME", name="conv1")
+        print(net)
+        # tf.summary.histogram("conv_1_layer", net)
+        net = tf.layers.conv1d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, padding = "SAME", name="conv2")
+        print(net)
+        net = tf.layers.conv1d(net, filters=1, kernel_size=second_conv_kernel, activation = None, padding = "SAME", name="conv3")
+        print(net)
+        shapes = net.get_shape().as_list()
+        print(shapes)
+        logits = tf.reshape(net, (-1, shapes[1]*shapes[2]))
         out = tf.nn.softmax(logits)
         return out, logits
 

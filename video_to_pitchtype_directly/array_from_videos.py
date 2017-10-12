@@ -12,7 +12,7 @@ class VideoProcessor:
 
     def __init__(self, path_input="videos/atl", df_path = "cf_data.csv", resize_width = 55, resize_height = 55):
         self.path_input=path_input
-	df = pd.read_csv(df_path)
+        df = pd.read_csv(df_path)
         self.df = df[df["Player"]=="Pitcher"]
         self.resize_width = resize_width
         self.resize_height = resize_height
@@ -57,13 +57,13 @@ class VideoProcessor:
         else:
             return line[column].values[0]
 
-    def get_pitcher_array(self, input_dir, f):
-        video_capture = cv2.VideoCapture(input_dir+f)
-        for i in open(input_dir+f+".dat").readlines():
+    def get_pitcher_array(self, filepath):
+        video_capture = cv2.VideoCapture(filepath)
+        for i in open(filepath+".dat").readlines():
             datContent=ast.literal_eval(i)
         bottom_p=datContent['Pitcher']['bottom']
-        left_p=datContent['Pitcher']['left'] +30
-        right_p=datContent['Pitcher']['right']-30
+        left_p=datContent['Pitcher']['left']
+        right_p=datContent['Pitcher']['right']
         top_p=datContent['Pitcher']['top']
         frames = np.zeros((167, self.resize_width, self.resize_height))
         i = 0
@@ -77,27 +77,29 @@ class VideoProcessor:
             i+=1
         return frames
 
-    def get_pitcherAndBatter_array(self, file_path, file):
-        video_capture = cv2.VideoCapture(input_dir+f)
-        for i in open(input_dir+f+".dat").readlines():
+    def get_pitcherAndBatter_array(self, filepath):
+        video_capture = cv2.VideoCapture(filepath)
+        for i in open(filepath+".dat").readlines():
             datContent=ast.literal_eval(i)
         bottom_p=datContent['Pitcher']['bottom']
-        left_p=datContent['Pitcher']['left'] +30
-        right_p=datContent['Pitcher']['right']-30
+        left_p=datContent['Pitcher']['left']
+        right_p=datContent['Pitcher']['right']
         top_p=datContent['Pitcher']['top']
         bottom_b=datContent['Batter']['bottom']
         left_b=datContent['Batter']['left']
         right_b=datContent['Batter']['right']
         top_b=datContent['Batter']['top']
-        center_dic['Pitcher']=np.array([abs(top_p-bottom_p)/2., abs(left_p-right_p)/2.])
-        center_dic['Batter']=np.array([abs(top_b-bottom_b)/2., abs(left_b-right_b)/2.])
+        #center_dic['Pitcher']=np.array([abs(top_p-bottom_p)/2., abs(left_p-right_p)/2.])
+        #center_dic['Batter']=np.array([abs(top_b-bottom_b)/2., abs(left_b-right_b)/2.])
         frames_pitcher = np.zeros((167, self.resize_width, self.resize_height))
         frames_batter = np.zeros((167, self.resize_width, self.resize_height))
         i = 0
-        while True:
+        for i in range(167):
             ret, frame = video_capture.read()
             if frame is None:
-                break
+                frames_pitcher[i] = frames_pitcher[i-1]
+                frames_batter[i] = frames_batter[i-1]
+                continue
             pitcher = frame[top_p:bottom_p, left_p:right_p]
             frames_pitcher[i] = cv2.resize(np.mean(pitcher, axis = 2),(self.resize_width, self.resize_height), interpolation = cv2.INTER_LINEAR)/255 #scipy.misc.imresize(pitcher, (109, 143, 3))/255
             batter = frame[top_b:bottom_b, left_b:right_b]

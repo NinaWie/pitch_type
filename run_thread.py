@@ -48,7 +48,7 @@ class Runner(threading.Thread):
         threading.Thread.__init__(self)
         self.data = data
         self.labels_string = labels_string
-        self.unique  = np.unique(labels_string).tolist()
+        self.unique  = np.arange(0, 167,1).tolist() # np.unique(labels_string).tolist()
         self.SAVE = SAVE
         self.BATCH_SZ=BATCH_SZ
         self.EPOCHS = EPOCHS
@@ -129,7 +129,7 @@ class Runner(threading.Thread):
             return pitches_test, out_test
 
 
-        labels, _ = Tools.onehot_encoding(self.labels_string)
+        labels = Tools.onehot_with_unique(self.labels_string, self.unique)
         ex_per_class = self.BATCH_SZ//nr_classes
         BATCHSIZE = nr_classes*ex_per_class
 
@@ -167,6 +167,9 @@ class Runner(threading.Thread):
         elif self.network=="adjustable conv2d":
             out, logits = model.conv2d(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+        elif self.network == "conv 1st move":
+            out, logits = model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+            self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         else:
             print("ERROR, WRONG self.network INPUT")
 
@@ -179,6 +182,11 @@ class Runner(threading.Thread):
         loss_regularization = self.regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
         # loss_maximum = tf.reduce_mean(tf.reduce_max(tf.nn.relu(y-out), axis = 1))
         loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
+
+        # max_out = tf.argmax(out, axis = 1)
+        # max_lab = tf.argmax(y, axis = 1)
+        # diff = tf.cast(max_out-max_lab, tf.float32)
+        # loss = tf.reduce_mean(tf.square(diff))
 
         optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
@@ -228,7 +236,7 @@ class Runner(threading.Thread):
         print("Loss", "Acc test", "Acc balanced")
         # Run session for self.EPOCHS
         for epoch in range(self.EPOCHS + 1):
-            for i, batch_x, batch_t in balanced_batches(train_x, train_t, nr_classes):
+            for i, batch_x, batch_t in batches(train_x, train_t, nr_classes):
                 summary, _ = sess.run([merged, optimizer], {x: batch_x, y: batch_t, training: True})
                 train_writer.add_summary(summary, i+self.batch_nr_in_epoch*epoch)
 
@@ -241,9 +249,9 @@ class Runner(threading.Thread):
             losses.append(np.around(loss_test, 2))
             acc_balanced.append(np.around(Tools.balanced_accuracy(pitches_test, labels_string_test),2))
             #Train Accuracy
-            # out_train = sess.run(out, {x: train_x, y: train_t, training: False})
-            # pitches_train = Tools.decode_one_hot(out_train, self.unique)
-            # acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
+            out_train = sess.run(out, {x: train_x, y: train_t, training: False})
+            pitches_train = Tools.decode_one_hot(out_train, self.unique)
+            acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
             print(loss_test, acc_test[-1], acc_balanced[-1])
             if acc_train!=[]:
                 print("acc_train: ", acc_train[-1])
@@ -265,11 +273,15 @@ class Runner(threading.Thread):
         print("True                Test                 ", self.unique)
         # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
         for i in range(len(labels_string_test)):
-            print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
+            print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
 
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
-        return pitches_test, max(acc_test)
+
+        pitches = np.append(pitches_test, pitches_train, axis = 0)
+        labs = np.append(labels_string_test, labels_string_train, axis = 0)
+        print("ACCURACY TOTAL", Tools.accuracy_in_range(pitches, labs, 5))
+        return pitches_test, pitches_train
 
 #runner = Runner()
 #pitches, accuracies = runner.runscript(self.data_raw[20:30], labels[20:30], np.self.unique(labels).tolist(), self.RESTORE="./model")

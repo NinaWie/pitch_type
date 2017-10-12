@@ -15,7 +15,7 @@ def test(data, restore_file):
     saver = tf.train.import_meta_graph(restore_file+'.meta')
     graph = tf.get_default_graph()
     try:
-	sess = tf.InteractiveSession()
+        sess = tf.InteractiveSession()
     except:
     	sess = tf.Session()
     saver.restore(sess, restore_file)
