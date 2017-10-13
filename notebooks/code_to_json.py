@@ -9,11 +9,11 @@ joints_list = ["right_shoulder", "left_shoulder", "right_elbow", "right_wrist","
         "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle", "neck ",
         "right_eye", "right_ear","left_eye", "left_ear"]
 
-def to_json(play, first_move, release):
+def to_json(play, events_dic):
     tic = time.time()
     frames, joints, xy = bsp.shape
     dic = {}
-    dic["timestamp"] = time.time()
+    dic["timestamp"] = int(round(time.time() * 1000))
     dic["device"] = "?"
     dic["deployment"] = "?"
     dic["frames"] = []
@@ -25,11 +25,9 @@ def to_json(play, first_move, release):
                 dic_xy[coordinates[k]] = bsp[i,j,k]
             dic_joints[joints_list[j]] = dic_xy
         dic_joints["events"]=[]
-        if i==first_move:
-            dic_joints["events"].append({"timestamp": time.time(), "name": "Pitcher's first movement","code": 1,
-                                    "target_name": "Pitcher", "target_id": 1})
-        if i ==release:
-            dic_joints["events"].append({"timestamp": time.time(), "name": "Pitcher ball release","code": 2,
+        for j in events_dic.keys():
+            if i==events_dic[j]:
+                dic_joints["events"].append({"timestamp": int(round(time.time() * 1000)), "name": j,"code": 1,
                                     "target_name": "Pitcher", "target_id": 1})
         dic["frames"].append(dic_joints)
 
@@ -38,7 +36,7 @@ def to_json(play, first_move, release):
     print(time.time()-tic)
 
 
-to_json(bsp, 2, 4)
+to_json(bsp, {"release_frame": 4, "fist_move": 2})
 
 def from_json(file):
     tic = time.time()

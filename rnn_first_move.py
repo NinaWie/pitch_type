@@ -132,6 +132,7 @@ def training(files, dic_lab, save_path, sequ_len):
             first_conv_filters=12, first_conv_kernel=3, second_conv_filter=12,
             second_conv_kernel=3, first_hidden_dense=128, second_hidden_dense=56,
             network = "conv 1st move")
+    runner.unique = np.arange(0, 167,1).tolist()
     runner.start()
 
 

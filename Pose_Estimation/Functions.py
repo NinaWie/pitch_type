@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
-from time_probe import tic, toc, time_summary
+# from time_probe import tic, toc, time_summary
 
 param_, model_ = config_reader()
 # USE_MODEL = model_['use_model']
@@ -80,13 +80,13 @@ def make_layers(cfg_dict):
     layers = []
     for i in range(len(cfg_dict)-1):
         one_ = cfg_dict[i]
-        for k,v in one_.iteritems():
+        for k,v in one_.items():
             if 'pool' in k:
                 layers += [nn.MaxPool2d(kernel_size=v[0], stride=v[1], padding=v[2] )]
             else:
                 conv2d = nn.Conv2d(in_channels=v[0], out_channels=v[1], kernel_size=v[2], stride = v[3], padding=v[4])
                 layers += [conv2d, nn.ReLU(inplace=True)]
-    one_ = cfg_dict[-1].keys()
+    one_ = list(cfg_dict[-1].keys())
     k = one_[0]
     v = cfg_dict[-1][k]
     conv2d = nn.Conv2d(in_channels=v[0], out_channels=v[1], kernel_size=v[2], stride = v[3], padding=v[4])
@@ -96,7 +96,7 @@ def make_layers(cfg_dict):
 layers = []
 for i in range(len(block0)):
     one_ = block0[i]
-    for k,v in one_.iteritems():
+    for k,v in one_.items():
         if 'pool' in k:
             layers += [nn.MaxPool2d(kernel_size=v[0], stride=v[1], padding=v[2] )]
         else:
@@ -106,7 +106,7 @@ for i in range(len(block0)):
 models = {}
 models['block0']=nn.Sequential(*layers)
 
-for k,v in blocks.iteritems():
+for k,v in blocks.items():
     models[k] = make_layers(v)
 
 class pose_model(nn.Module):
@@ -415,8 +415,8 @@ def player_localization(df,frame,player,old_array):
     player2=player+'_player'
     dist=[]
     for i in range(np.asarray(df[player][frame]).shape[0]):
-        zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]<>0)
-        zerrow2=np.where(old_array[:,0]<>0)
+        zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]!=0)
+        zerrow2=np.where(old_array[:,0]!=0)
         zerrow=np.intersect1d(zerrow1,zerrow2)
 
         if len(zerrow)<2:
@@ -498,7 +498,7 @@ def df_coordinates(df,centerd):
         for person in range(len(df[player][0])):
             hips=np.asarray(df[player][0][person])[indices]
 
-            hips=hips[np.sum(hips,axis=1)<>0]
+            hips=hips[np.sum(hips,axis=1)!=0]
             mean_hips=np.mean(hips,axis=0)
 
 

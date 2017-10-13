@@ -6,6 +6,7 @@ import pandas as pd
 from os.path import isfile, join
 from os import listdir
 import codecs, json
+import tensorflow as tf
 
 from Functions import handle_one,df_coordinates
 import ast
@@ -26,6 +27,19 @@ args = parser.parse_args()
 f = args.input_file
 ext= f[-4:] #args.extension
 print("input file: ",f, ext)
+
+### TENSORFLOW PART
+restore_file = "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/saved_models/release_model"
+saver = tf.train.import_meta_graph(restore_file+'.meta')
+graph = tf.get_default_graph()
+try:
+    sess = tf.InteractiveSession()
+except:
+    sess = tf.Session()
+saver.restore(sess, restore_file)
+out = tf.get_collection("out")[0]
+unique = tf.get_collection("unique")[0]#
+###
 
 if True: #__name__ == "__main__":
     j=0
@@ -50,6 +64,7 @@ if True: #__name__ == "__main__":
     df = pd.DataFrame(columns=['Frame','Pitcher','Batter'])
     tic1 = time.time()
     p=0
+    events_dic = {}
     while True:
 # Capture frame-by-frame
         ret, frame = video_capture.read()
@@ -58,8 +73,16 @@ if True: #__name__ == "__main__":
             break
         pitcher = frame[top_p:bottom_p, left_p:right_p]
         batter = frame[top_b:bottom_b, left_b:right_b]
-        df.loc[p]=[int(p),handle_one(pitcher),handle_one(batter) ]
+        df.loc[p]=[int(p),handle_one(pitcher),handle_one(batter)]
+
+        input_release_frame = cv2.resize(np.mean(pitcher, axis = 2),(55, 55), interpolation = cv2.INTER_LINEAR)/255
+        data = np.reshape(input_release_frame, (1, 55, 55, 1))
+        out_release_frame = sess.run(out, {"input:0":  data, "training:0": False})
+        print(out_release_frame)
+        if out_release_frame[1]>0.95:
+            events_dic["release_frame"] = p
         p+=1
+
     print("Time to read in video and handle one:", time.time()-tic1)
     #print("nach handle one shape ", df.loc[p-1]["Pitcher"].shape)
     #try:
@@ -74,8 +97,8 @@ if True: #__name__ == "__main__":
             pitcher_array[0,i,:,:] = pitcher_array[0,i-1,:,:]
     print("shape", pitcher_array.shape)
     b = pitcher_array.tolist()
-    file_path = "pitcher_array.json" 
-    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)     
+    file_path = "pitcher_array.json"
+    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)
 # serialized = json.dumps(memfile.read().decode('latin-1'))
 #np.save("pitcher_arr", pitcher_array)
 

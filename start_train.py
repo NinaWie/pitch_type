@@ -52,7 +52,7 @@ else:
     prepro = Preprocessor("sv_data.csv")
 
 prepro.remove_small_classes(CUT_OFF_Classes)
-prepro.remove_wrong_games("490266")
+# prepro.remove_wrong_games("490266")
 
 if position is not None:
     prepro.select_movement(position)
@@ -77,12 +77,16 @@ if save_path is not None and load_preprocessing_parameters is None:
 # prepro.set_labels_toWindup()
 
 
-if PATH is not "concat":
+if PATH is not "cf" or PATH is "sv":
     data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
-    # data_raw = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/carlos.npy")
+elif PATH is "concat":
+    data = prepro.concat_with_second("sv_data.csv", None)
+elif PATH[-3:]=="npy":
+    data = np.load(PATH)
     print("data loaded")
 else:
-    data = prepro.concat_with_second("sv_data.csv", None)
+
+
 
 
 if head_out:

@@ -48,7 +48,7 @@ class Runner(threading.Thread):
         threading.Thread.__init__(self)
         self.data = data
         self.labels_string = labels_string
-        self.unique  = np.arange(0, 167,1).tolist() # np.unique(labels_string).tolist()
+        self.unique  = np.unique(labels_string).tolist()
         self.SAVE = SAVE
         self.BATCH_SZ=BATCH_SZ
         self.EPOCHS = EPOCHS
