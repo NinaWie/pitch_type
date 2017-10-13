@@ -22,7 +22,7 @@ input_file = args.input_file
 
 
 og_model = AvailableModels[USE_MODEL]()
-fast_model = AvailableModels[USE_MODEL]()
+fast_model = AvailableModels['fast']()
 
 if __name__ == '__main__':
     j=0
@@ -72,4 +72,3 @@ if __name__ == '__main__':
     plt.show()
 
     raw_input(':')
-

@@ -33,7 +33,6 @@ USE_MODEL = model_['use_model']
 USE_GPU = param_['use_gpu']
 TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
 
-
 class TensorFlowModel:
     """
     TensorFlow model credited to Michal F.
@@ -328,4 +327,10 @@ class PyTorchModel(nn.Module):
 
         return (output1, output2), (heatmap[0].data.cpu().numpy(), paf[0].data.cpu().numpy())
 
-AvailableModels = { 'tensorflow': TensorFlowModel, 'pytorch': PyTorchModel }
+from FastModel import FastModel
+
+AvailableModels = {
+    'tensorflow': TensorFlowModel,
+    'pytorch': PyTorchModel,
+    'fast': FastModel
+}
