@@ -11,6 +11,7 @@ from keras import backend as K
 
 # Common deps
 import numpy as np
+import numpy.linalg as la
 import cv2
 import util
 
@@ -153,21 +154,38 @@ class FastModel:
 
         raise Exception('NO LAYER WITH NAME "%s" FOUND' % (with_name))
 
-    def compress_block(self, in_block, printout=True):
-        out_block = []
+    def decompose_weights(self, weights):
+        fx, fy, d1, d2 = weights.shape
+        flattened = np.reshape(weights, (fx * fy * d1, d2))
 
+        U, S, V = la.svd(flattened)
+
+        smat = np.zeros((U.shape[1], len(S)))
+        smat[:len(S), :] = np.diag(S)
+
+        return None, None, (U, smat, V)
+
+    def compress_block(self, in_block, printout=True):
         if printout: print '============== COMPRESS BLOCK =============='
 
+        out_block = []
         for batchdef in in_block:
-            layer_type, args, repeats, pool, names, _ = batchdef
+            layer_type, args, repeats, autopool, names, _ = batchdef
             for ii in range(repeats):
                 layer_name = names[ii]
                 kerasnode = self.find_keras_node(layer_name, self.model)
-                weights = kerasnode.get_weights()
-                print '| [%d]:' % (ii + 1), names[ii], '(#w: %d, shape: %s)' % (len(weights), str(weights[0].shape))
+                # weightmat, biasvect = kerasnode.get_weights()
 
-        # return out_block
-        return in_block
+                # if ii is 0:
+                #     decompSV, decompD, (U, S, V) = self.decompose_weights(weightmat)
+
+                #     if printout:
+                #         print '| [%d]:' % (ii + 1), names[ii], '(shape: %s)' % (str(weightmat.shape))
+                #         print '|     * USV:', U.shape, S.shape, V.shape
+
+                should_pool = ii is repeats - 1
+                out_block.append(block_def(layer_type, args, 1, autopool and should_pool, [layer_name]))
+        return out_block
 
     def compress_model(self, img_input):
         cmp_vgg_block_def = self.compress_block(VGG_BLOCK_DEF)
