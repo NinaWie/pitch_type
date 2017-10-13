@@ -1,9 +1,11 @@
 from configobj import ConfigObj
 import numpy as np
+import os
 
 
 def config_reader():
-    config = ConfigObj('config')
+    default_config = os.path.join(os.path.dirname(__file__), 'config')
+    config = ConfigObj(default_config)
 
     param = config['param']
     model_id = param['modelID']

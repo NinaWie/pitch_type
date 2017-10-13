@@ -11,8 +11,7 @@ from torch.autograd import Variable
 
 # Keras/TF dependencies
 import keras
-from keras.models import Sequential
-from keras.models import Model
+from keras.models import load_model, Sequential, Model
 from keras.layers import Input, Dense, Activation
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
@@ -41,7 +40,7 @@ class TensorFlowModel:
     (https://github.com/michalfaber/keras_Realtime_Multi-Person_Pose_Estimation)
     """
 
-    def __init__(self):
+    def __init__(self, load_weights=True, compressed_model=None):
         self.session = tf.Session()
         K.set_session(self.session)
 
@@ -132,12 +131,30 @@ class TensorFlowModel:
 
             return x
 
+        # Hyper-parameters
         input_shape = (None,None,3)
         img_input = Input(shape=input_shape)
 
         stages = 6
         np_branch1 = 38
         np_branch2 = 19
+
+        # output resize operations
+        # TODO: probably better of batch resizing at the end instead of doing them discretely
+        self.raw_heatmap = tf.placeholder(tf.float32, shape=(None, None, None, 19))
+        self.raw_paf = tf.placeholder(tf.float32, shape=(None, None, None, 38))
+        self.resize_size = tf.placeholder(tf.int32, shape=(2))
+
+        self.resize_heatmap = tf.transpose(tf.image.resize_images(self.raw_heatmap, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
+        self.resize_paf = tf.transpose(tf.image.resize_images(self.raw_paf, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
+
+        if compressed_model:
+            print '| Loading compressed model:', compressed_model
+            self.model = load_model(compressed_model)
+
+            compressed_weights = compressed_model.replace('.h5', '_w.h5')
+            self.model.load_weights(compressed_weights)
+            return
 
         # VGG
         with tf.name_scope('VggConvLayer'):
@@ -158,15 +175,8 @@ class TensorFlowModel:
                     x = Concatenate()([stageT_branch1_out, stageT_branch2_out, stage0_out])
 
         self.model = Model(img_input, [stageT_branch1_out, stageT_branch2_out])
-        self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
-
-
-        self.raw_heatmap = tf.placeholder(tf.float32, shape=(None, None, None, 19))
-        self.raw_paf = tf.placeholder(tf.float32, shape=(None, None, None, 38))
-        self.resize_size = tf.placeholder(tf.int32, shape=(2))
-
-        self.resize_heatmap = tf.transpose(tf.image.resize_images(self.raw_heatmap, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
-        self.resize_paf = tf.transpose(tf.image.resize_images(self.raw_paf, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
+        if load_weights:
+            self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
 
         test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
 

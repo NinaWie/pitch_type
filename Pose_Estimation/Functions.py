@@ -7,6 +7,7 @@ Created on Thu Jun 22 16:02:39 2017
 """
 
 import numpy as np
+import numpy.linalg as la
 import time
 import math
 # from torch import np
@@ -64,9 +65,15 @@ colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0]
           [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], \
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
 
-model = AvailableModels[USE_MODEL]()
+def define_model(load_model=None):
+    if not load_model:
+        loaded = AvailableModels[USE_MODEL]()
+    else:
+        loaded = AvailableModels[USE_MODEL](compressed_model=load_model)
+    # loaded = AvailableModels[USE_MODEL](compressed_model='./model/keras/model_2.h5')
+    return loaded
 
-def handle_one(oriImg):
+def handle_one(model, oriImg):
     multiplier = [x * model_['boxsize'] / oriImg.shape[0] for x in param_['scale_search']]
 
     scale = model_['boxsize'] / float(oriImg.shape[0])
@@ -82,6 +89,7 @@ def handle_one(oriImg):
         scale = multiplier[m]
 
         (output1, output2), (heatmap, paf) = model.evaluate(oriImg, scale=scale)
+        # print output1.shape, output2.shape, heatmap.shape, paf.shape
 
         globals()['heatmap_avg_%s'%m] = heatmap
         globals()['paf_avg_%s'%m] = paf
@@ -417,24 +425,25 @@ def score_coordinates(output_file='pitcher_array.json', score_file='pitcher_arra
         return
 
     with open(score_file) as fl:
-        score_data = json.load(fl)
+        score_data = np.array(json.load(fl))
         # print len(score_data), len(score_data[0]), len(score_data[0][0])
 
         with open(output_file) as fl2:
-            output_data = json.load(fl2)
+            output_data = np.array(json.load(fl2))
 
-            assert len(score_data[0]) is len(output_data[0]) # should have same number of frames if from same video
+            print score_data.shape, output_data.shape
+            # assert len(score_data[0]) is len(output_data[0]) # should have same number of frames if from same video
 
-            sum_dist_l2 = 0.0
-            counter = 0
-            for person_i in range(len(score_data)):
-                for frames_i in range(len(score_data[0])):
-                    for joint_i in range(len(score_data[0][0])):
-                        score_xy = np.array(score_data[person_i][frames_i][joint_i])
-                        output_xy = np.array(output_data[person_i][frames_i][joint_i])
-                        sum_dist_l2 += np.linalg.norm(score_xy - output_xy)
-                        counter += 1
+            # sum_dist_l2 = 0.0
+            # counter = 0
+            # for person_i in range(len(score_data)):
+            # for frames_i in range(len(score_data)):
+            #     for joint_i in range(len(score_data[0])):
+            #         score_xy = np.array(score_data[frames_i][joint_i])
+            #         output_xy = np.array(output_data[frames_i][joint_i])
+            #         sum_dist_l2 += np.linalg.norm(score_xy - output_xy)
+            #         counter += 1
 
             print '|    ("%s" against "%s")' %(output_file, score_file)
-            print '|    Distance: %.4f' % (sum_dist_l2)
-            print '|    Avg     : %.4f' % (sum_dist_l2 / float(counter))
+            print '|    Distance: %.4f' % (la.norm(score_data - output_data))
+            # print '|    Avg     : %.4f' % (sum_dist_l2 / float(counter))

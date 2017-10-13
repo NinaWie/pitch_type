@@ -6,7 +6,7 @@ from os.path import isfile, join
 from os import listdir
 import codecs, json
 
-from Functions import handle_one, df_coordinates, score_coordinates
+from Functions import handle_one, df_coordinates, score_coordinates, define_model
 import ast
 import cv2
 
@@ -26,10 +26,11 @@ f = args.input_file
 ext= f[-4:] #args.extension
 print("input file: ",f, ext)
 
+model = define_model()
+
 if True: #__name__ == "__main__":
     j=0
     center_dic={}
-    tic=time.time()
 
     path_input_dat=f+'.dat'
 
@@ -46,11 +47,12 @@ if True: #__name__ == "__main__":
     top_b=datContent['Batter']['top']
     center_dic['Pitcher']=np.array([abs(top_p-bottom_p)/2., abs(left_p-right_p)/2.])
     center_dic['Batter']=np.array([abs(top_b-bottom_b)/2., abs(left_b-right_b)/2.])
-    df = pd.DataFrame(columns=['Frame','Pitcher','Batter'])
-    tic1 = time.time()
+    # df = pd.DataFrame(columns=['Frame','Pitcher','Batter'])
+
+    frames_t0 = time.time()
     p=0
+    results = []
     while True:
-# Capture frame-by-frame
         if p % 10 is 0:
             print 'Frame #:', p
         ret, frame = video_capture.read()
@@ -58,28 +60,43 @@ if True: #__name__ == "__main__":
             print("end of video capture")
             break
         pitcher = frame[top_p:bottom_p, left_p:right_p]
-        batter = frame[top_b:bottom_b, left_b:right_b]
-        df.loc[p]=[int(p),handle_one(pitcher),handle_one(batter) ]
-        p+=1
-        # if p is 2: break
-    print("Time to read in video and handle one:", time.time()-tic1)
-    #print("nach handle one shape ", df.loc[p-1]["Pitcher"].shape)
-    #try:
-    tic2 = time.time()
-    df_res= df_coordinates(df,center_dic)
-    print("time for df_coordinates", time.time()-tic2)
-    pitcher_array = np.zeros((1, 167, 18,2))
-    for i in range(167):
-        try:
-            pitcher_array[0,i,:,:] = np.array(df_res['Pitcher_player'].values[i])
-        except:
-            pitcher_array[0,i,:,:] = pitcher_array[0,i-1,:,:]
-    print("shape", pitcher_array.shape)
-    b = pitcher_array.tolist()
-    file_path = "pitcher_array.json"
-    json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)
+        # batter = frame[top_b:bottom_b, left_b:right_b]
+        # df.loc[p]=[int(p),handle_one(model, pitcher),handle_one(model, batter) ]
 
-    score_coordinates()
+        # TODO: Why is model evaluated twice? (instead of once for entire scene?)
+        output_coords = handle_one(model, pitcher)
+        # print output_coords
+        results.append(output_coords)
+        # results.append([int(p), , handle_one(model, batter)])
+        # p+=1
+        # if p is 3: break
+    print '| Time to process entire video:', time.time() - frames_t0
+
+    # pitcher_coords = results[0]
+
+    # # print pitcher_coords
+
+    # with open('./heatmap.json', 'wb') as fl:
+    #     json.dump(pitcher_coords.tolist(), fl, indent=4)
+
+
+    # tic2 = time.time()
+    # df_res= df_coordinates(df,center_dic)
+    # print("time for df_coordinates", time.time()-tic2)
+
+    # pitcher_array = np.zeros((1, 167, 18,2))
+    # for i in range(167):
+    #     try:
+    #         pitcher_array[0,i,:,:] = np.array(df_res['Pitcher_player'].values[i])
+    #     except:
+    #         pitcher_array[0,i,:,:] = pitcher_array[0,i-1,:,:]
+    # print("shape", pitcher_array.shape)
+
+    # b = pitcher_array.tolist()
+    # file_path = "pitcher_array.json"
+    # json.dump(b, codecs.open(file_path, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True, indent=4)
+
+    # score_coordinates(output_file='heatmap.json', score_file='heatmap_score.json')
 
 
 # serialized = json.dumps(memfile.read().decode('latin-1'))
@@ -93,5 +110,6 @@ if True: #__name__ == "__main__":
     #label = np.array([(cf["Pitch Type"].values)[location_play]])
     #runner = Runner()
     #pitches, acc = runner.run(pitcher_array, label, all_classes, RESTORE="/scratch/nvw224/WHOLE/model1")
-    toctoc=time.time()
-    print("Time for whole video to array: ", toctoc-tic)
+
+    #  toctoc=time.time()
+    # print("Time for whole video to array: ", toctoc-tic)
