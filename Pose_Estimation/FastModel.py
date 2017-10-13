@@ -34,28 +34,28 @@ def pooling(x, ks, st, name):
     x = MaxPooling2D((ks, ks), strides=(st, st), name=name)(x)
     return x
 
-def block_def(layer_type, args, repeats, autopool, names):
-    return [layer_type, args, repeats, autopool, names, None]
+def layer_def(layer_type, args, repeats, autopool, names):
+    return (layer_type, args, repeats, autopool, names)
 
 VGG_BLOCK_DEF = [
-    block_def('conv', (64, 3), 2, True, ['conv1_1', 'conv1_2']),
-    block_def('conv', (128, 3), 2, True, ['conv2_1', 'conv2_2']),
-    block_def('conv', (256, 3), 4, True, ['conv3_1', 'conv3_2', 'conv3_3', 'conv3_4']),
-    block_def('conv', (512, 3), 2, False, ['conv4_1', 'conv4_2']),
-    block_def('conv', (256, 3), 1, False, ['conv4_3_CPM']),
-    block_def('conv', (128, 3), 1, False, ['conv4_4_CPM'])
+    layer_def('conv', (64, 3), 2, True, ['conv1_1', 'conv1_2']),
+    layer_def('conv', (128, 3), 2, True, ['conv2_1', 'conv2_2']),
+    layer_def('conv', (256, 3), 4, True, ['conv3_1', 'conv3_2', 'conv3_3', 'conv3_4']),
+    layer_def('conv', (512, 3), 2, False, ['conv4_1', 'conv4_2']),
+    layer_def('conv', (256, 3), 1, False, ['conv4_3_CPM']),
+    layer_def('conv', (128, 3), 1, False, ['conv4_4_CPM'])
 ]
 
 STAGE1_ONE_BLOCK_DEF = [
-    block_def('conv', (128, 3), 3, False, ['conv5_1_CPM_L1', 'conv5_2_CPM_L1', 'conv5_3_CPM_L1']),
-    block_def('conv', (512, 1), 1, False, ['conv5_4_CPM_L1']),
-    block_def('just_conv', (38, 1), 1, False, ['conv5_5_CPM_L1'])
+    layer_def('conv', (128, 3), 3, False, ['conv5_1_CPM_L1', 'conv5_2_CPM_L1', 'conv5_3_CPM_L1']),
+    layer_def('conv', (512, 1), 1, False, ['conv5_4_CPM_L1']),
+    layer_def('just_conv', (38, 1), 1, False, ['conv5_5_CPM_L1'])
 ]
 
 STAGE1_TWO_BLOCK_DEF = [
-    block_def('conv', (128, 3), 3, False, ['conv5_1_CPM_L2', 'conv5_2_CPM_L2', 'conv5_3_CPM_L2']),
-    block_def('conv', (512, 1), 1, False, ['conv5_4_CPM_L2']),
-    block_def('just_conv', (19, 1), 1, False, ['conv5_5_CPM_L2'])
+    layer_def('conv', (128, 3), 3, False, ['conv5_1_CPM_L2', 'conv5_2_CPM_L2', 'conv5_3_CPM_L2']),
+    layer_def('conv', (512, 1), 1, False, ['conv5_4_CPM_L2']),
+    layer_def('just_conv', (19, 1), 1, False, ['conv5_5_CPM_L2'])
 ]
 
 def DEFINE_HEATMAP_PAF_BLOCKS(btype='heatmap'): # or paf
@@ -67,9 +67,9 @@ def DEFINE_HEATMAP_PAF_BLOCKS(btype='heatmap'): # or paf
         first_five_names = ['Mconv%d_stage%d_L%d' % (ii + 1, stage, branch_label) for ii in range(5)]
 
         oneblock = [
-            block_def('conv', (128, 7), 5, False, first_five_names),
-            block_def('conv', (128, 1), 1, False, ['Mconv6_stage%d_L%d' % (stage, branch_label)]),
-            block_def('just_conv', (output_size, 1), 1, False, ['Mconv7_stage%d_L%d' % (stage, branch_label)]),
+            layer_def('conv', (128, 7), 5, False, first_five_names),
+            layer_def('conv', (128, 1), 1, False, ['Mconv6_stage%d_L%d' % (stage, branch_label)]),
+            layer_def('just_conv', (output_size, 1), 1, False, ['Mconv7_stage%d_L%d' % (stage, branch_label)]),
         ]
         blocks.append(oneblock)
 
@@ -84,16 +84,14 @@ def build_block(inout, blockdef):
     global BUILDER_ID
 
     for batchdef in blockdef:
-        layer_type, args, repeats, pool, names, _ = batchdef
+        layer_type, args, repeats, pool, names = batchdef
         for ii in range(repeats):
             layer_name = names[ii]
             if layer_type is 'conv':
                 inout = conv(inout, args[0], args[1], layer_name)
-                batchdef[-1] = inout # keep node for later
                 inout = relu(inout)
             elif layer_type is 'just_conv':
                 inout = conv(inout, args[0], args[1], layer_name)
-                batchdef[-1] = inout # again, keep node for later
             else:
                 raise Exception('OTHER TYPES UNAVAILABLE')
         if pool:
@@ -151,49 +149,101 @@ class FastModel:
         for layer in some_model.layers:
             if layer.name is with_name:
                 return layer
+        return None
+        # raise Exception('NO LAYER WITH NAME "%s" FOUND' % (with_name))
 
-        raise Exception('NO LAYER WITH NAME "%s" FOUND' % (with_name))
-
-    def decompose_weights(self, weights):
+    def decompose_weights(self, weights, keep_ratio = 0.5):
         fx, fy, d1, d2 = weights.shape
         flattened = np.reshape(weights, (fx * fy * d1, d2))
 
         U, S, V = la.svd(flattened)
+        keep_ranks = int(keep_ratio * len(S))
 
         smat = np.zeros((U.shape[1], len(S)))
         smat[:len(S), :] = np.diag(S)
 
-        return None, None, (U, smat, V)
+        # print weights.shape
+        # print U.shape, S.shape, V.shape, keep_ranks
 
+        Amat = U.copy()[:, :]
+        Amat = np.dot(Amat, smat.copy()[:, :keep_ranks])
+        Amat = np.reshape(Amat, (fx, fy, d1, keep_ranks))
+        Bmat = V.copy()[:keep_ranks, :]
+        Bmat = np.reshape(Bmat, (1, 1, keep_ranks, d2))
+
+        return Amat, Bmat, (U, smat, V)
+
+    onetime = False
     def compress_block(self, in_block, printout=True):
         if printout: print '============== COMPRESS BLOCK =============='
 
+        # Unravels any repeats for finer control on layer definitions.
         out_block = []
-        for batchdef in in_block:
-            layer_type, args, repeats, autopool, names, _ = batchdef
+        for bb, batchdef in enumerate(in_block):
+            layer_type, args, repeats, autopool, names = batchdef
             for ii in range(repeats):
                 layer_name = names[ii]
-                kerasnode = self.find_keras_node(layer_name, self.model)
-                # weightmat, biasvect = kerasnode.get_weights()
+                should_pool = autopool and (ii is repeats - 1)
 
-                # if ii is 0:
-                #     decompSV, decompD, (U, S, V) = self.decompose_weights(weightmat)
+                if bb is 0 and ii is 0 and layer_type is 'conv':
+                # if bb is 0 and ii is 0 and layer_type is 'conv' and not self.onetime:
+                    self.onetime = True
+                    """
+                    Try compressing only first conv layers of blocks.
+                    """
+                    kerasnode = self.find_keras_node(layer_name, self.model)
+                    weightmat, biasvect = kerasnode.get_weights()
+                    Amat, Bmat, (U, S, V) = self.decompose_weights(weightmat)
+                    # FIXME: should_pool will be incorrect for final layers of blocks...
+                    out_block.append(layer_def(layer_type, (Bmat.shape[2], args[1], [Amat, np.zeros(Amat.shape[-1])]), 1, should_pool, ['compressed_A_' + layer_name]))
+                    out_block.append(layer_def(layer_type, (args[0], 1, [Bmat, biasvect]), 1, should_pool, ['compressed_B_' + layer_name]))
 
-                #     if printout:
-                #         print '| [%d]:' % (ii + 1), names[ii], '(shape: %s)' % (str(weightmat.shape))
-                #         print '|     * USV:', U.shape, S.shape, V.shape
-
-                should_pool = ii is repeats - 1
-                out_block.append(block_def(layer_type, args, 1, autopool and should_pool, [layer_name]))
+                    if printout:
+                        print '| [%d]:' % (ii + 1), names[ii], '(shape: %s)' % (str(weightmat.shape))
+                        print '|     * USV:', U.shape, S.shape, V.shape
+                        print '|     * A-B:', Amat.shape, Bmat.shape
+                else:
+                    out_block.append(layer_def(layer_type, args, 1, should_pool, [layer_name]))
         return out_block
 
+    # def transfer_weights_to_compressed(self):
+
     def compress_model(self, img_input):
+
+        # Build the structure of the compressed model.
         cmp_vgg_block_def = self.compress_block(VGG_BLOCK_DEF)
         cmp_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
         cmp_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
 
         cmp_model = self.build_pose_estimation_model(img_input, cmp_vgg_block_def, cmp_heatmap_block_defs, cmp_paf_block_defs)
-        cmp_model.load_weights(TENSORFLOW_WEIGHTS_PATH)
+
+        # Given the block defs of the compressed model, transfer weights from original model.
+        print '============== WEIGHT TRANSFER =============='
+        count_transferred = 0
+        for layer in self.model.layers:
+            if layer.get_weights():
+                node = self.find_keras_node(layer.name, cmp_model)
+                if node:
+                    weights = layer.get_weights()
+                    node.set_weights(weights)
+                    count_transferred += 1
+
+        count_transferred_comp = 0
+        names_index = 4
+        args_index = 1
+        for block in [cmp_vgg_block_def] + cmp_heatmap_block_defs + cmp_paf_block_defs:
+            for batchdef in block:
+                layer_name = batchdef[names_index][0]
+                if 'compressed' in layer_name:
+                    _, _, weights = batchdef[args_index]
+                    node = self.find_keras_node(layer_name, cmp_model)
+                    node.set_weights(weights)
+                    count_transferred_comp += 1
+        print '| Transferred Original %d weights.' % count_transferred
+        print '| Set Compressed       %d weights.' % count_transferred_comp
+
+        cmp_model.summary()
+        self.model.summary()
 
         return cmp_model
 
