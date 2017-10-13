@@ -34,7 +34,7 @@ def pooling(x, ks, st, name):
     return x
 
 def block_def(layer_type, args, repeats, autopool, names):
-    return (layer_type, args, repeats, autopool, names)
+    return [layer_type, args, repeats, autopool, names, None]
 
 VGG_BLOCK_DEF = [
     block_def('conv', (64, 3), 2, True, ['conv1_1', 'conv1_2']),
@@ -58,9 +58,10 @@ STAGE1_TWO_BLOCK_DEF = [
 ]
 
 def DEFINE_HEATMAP_PAF_BLOCKS(btype='heatmap'): # or paf
-    blocks = []
+    first_block = STAGE1_ONE_BLOCK_DEF if btype is 'heatmap' else STAGE1_TWO_BLOCK_DEF
     output_size, branch_label = (38, 1) if btype is 'heatmap' else (19, 2)
 
+    blocks = [first_block]
     for stage in range(2, 7):
         first_five_names = ['Mconv%d_stage%d_L%d' % (ii + 1, stage, branch_label) for ii in range(5)]
 
@@ -82,14 +83,16 @@ def build_block(inout, blockdef):
     global BUILDER_ID
 
     for batchdef in blockdef:
-        layer_type, args, repeats, pool, names = batchdef
+        layer_type, args, repeats, pool, names, _ = batchdef
         for ii in range(repeats):
             layer_name = names[ii]
             if layer_type is 'conv':
                 inout = conv(inout, args[0], args[1], layer_name)
+                batchdef[-1] = inout # keep node for later
                 inout = relu(inout)
             elif layer_type is 'just_conv':
                 inout = conv(inout, args[0], args[1], layer_name)
+                batchdef[-1] = inout # again, keep node for later
             else:
                 raise Exception('OTHER TYPES UNAVAILABLE')
         if pool:
@@ -103,16 +106,12 @@ class FastModel:
     (https://github.com/michalfaber/keras_Realtime_Multi-Person_Pose_Estimation)
     """
 
-    def __init__(self, load_weights=True):
+    def __init__(self):
         self.session = tf.Session()
 
         # Hyper-parameters
         input_shape = (None,None,3)
         img_input = Input(shape=input_shape)
-
-        stages = 6
-        np_branch1 = 38
-        np_branch2 = 19
 
         # output resize operations
         # TODO: probably better of batch resizing at the end instead of doing them discretely
@@ -123,31 +122,44 @@ class FastModel:
         self.resize_heatmap = tf.transpose(tf.image.resize_images(self.raw_heatmap, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
         self.resize_paf = tf.transpose(tf.image.resize_images(self.raw_paf, self.resize_size, align_corners=True), perm=[0, 3, 1, 2])
 
+        self.model = self.build_pose_estimation_model(img_input, VGG_BLOCK_DEF, HEATMAP_BLOCK_DEFS, PAF_BLOCK_DEFS)
+        self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
+
+        self.model = self.compress_model(img_input)
+
+    def build_pose_estimation_model(self, img_input, vgg_block_def, heatmap_block_defs, paf_block_defs):
+        stages = 6
+
         # VGG
         with tf.name_scope('VggConvLayer'):
-            stage0_out = build_block(img_input, VGG_BLOCK_DEF)
+            stage0_out = build_block(img_input, vgg_block_def)
 
-        # stage 1
-        with tf.name_scope('DualLayer%d' % (1)):
-            stage1_branch1_out = build_block(stage0_out, STAGE1_ONE_BLOCK_DEF)
-            stage1_branch2_out = build_block(stage0_out, STAGE1_TWO_BLOCK_DEF)
-            x = Concatenate()([stage1_branch1_out, stage1_branch2_out, stage0_out])
-
-        # stage t >= 2
+        running_node = stage0_out
         stage_iter = 0
-        for sn in range(2, stages + 1):
+        for sn in range(1, stages + 1):
             with tf.name_scope('DualLayer%d' % (sn)):
-                stageT_branch1_out = build_block(x, HEATMAP_BLOCK_DEFS[stage_iter]) # stageT_block(x, np_branch1, sn, 1, prefix='Heat')
-                stageT_branch2_out = build_block(x, PAF_BLOCK_DEFS[stage_iter]) # stageT_block(x, np_branch2, sn, 2, prefix='PAF')
+                stageT_branch1_out = build_block(running_node, heatmap_block_defs[stage_iter])
+                stageT_branch2_out = build_block(running_node, paf_block_defs[stage_iter])
                 stage_iter += 1
                 if (sn < stages):
-                    x = Concatenate()([stageT_branch1_out, stageT_branch2_out, stage0_out])
+                    running_node = Concatenate()([stageT_branch1_out, stageT_branch2_out, stage0_out])
 
-        self.model = Model(img_input, [stageT_branch1_out, stageT_branch2_out])
-        if load_weights:
-            self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
+        return Model(img_input, [stageT_branch1_out, stageT_branch2_out])
 
-        # test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
+    def compress_block(self, in_block):
+        out_block = []
+        # return out_block
+        return in_block
+
+    def compress_model(self, img_input):
+        cmp_vgg_block_def = self.compress_block(VGG_BLOCK_DEF)
+        cmp_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
+        cmp_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
+
+        cmp_model = self.build_pose_estimation_model(img_input, cmp_vgg_block_def, cmp_heatmap_block_defs, cmp_paf_block_defs)
+        cmp_model.load_weights(TENSORFLOW_WEIGHTS_PATH)
+
+        return cmp_model
 
     def evaluate(self, oriImg, scale=1.0):
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)

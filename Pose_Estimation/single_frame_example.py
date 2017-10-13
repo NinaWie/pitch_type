@@ -62,10 +62,10 @@ if __name__ == '__main__':
     for ii, ax in enumerate(axes.flat):
         if ii < show_imgs:
             ax.imshow(double_img(pitcher_img))
-            ax.imshow(double_img(heatmap[ii]), alpha=0.5)
+            ax.imshow(double_img(heatmap[ii * 2]), alpha=0.5)
         else:
             ax.imshow(double_img(pitcher_img))
-            ax.imshow(double_img(heatmap2[ii - show_imgs]), alpha=0.5)
+            ax.imshow(double_img(heatmap2[(ii - show_imgs) * 2]), alpha=0.5)
 
     plt.tight_layout()
     plt.ion()
