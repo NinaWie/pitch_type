@@ -146,8 +146,26 @@ class FastModel:
 
         return Model(img_input, [stageT_branch1_out, stageT_branch2_out])
 
-    def compress_block(self, in_block):
+    def find_keras_node(self, with_name, some_model):
+        for layer in some_model.layers:
+            if layer.name is with_name:
+                return layer
+
+        raise Exception('NO LAYER WITH NAME "%s" FOUND' % (with_name))
+
+    def compress_block(self, in_block, printout=True):
         out_block = []
+
+        if printout: print '============== COMPRESS BLOCK =============='
+
+        for batchdef in in_block:
+            layer_type, args, repeats, pool, names, _ = batchdef
+            for ii in range(repeats):
+                layer_name = names[ii]
+                kerasnode = self.find_keras_node(layer_name, self.model)
+                weights = kerasnode.get_weights()
+                print '| [%d]:' % (ii + 1), names[ii], '(#w: %d, shape: %s)' % (len(weights), str(weights[0].shape))
+
         # return out_block
         return in_block
 
