@@ -42,7 +42,7 @@ class TensorFlowModel:
 
     def __init__(self, load_weights=True, compressed_model=None):
         self.session = tf.Session()
-        K.set_session(self.session)
+        # K.set_session(self.session)
 
         def relu(x):
             return Activation('relu')(x)
@@ -178,7 +178,7 @@ class TensorFlowModel:
         if load_weights:
             self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
 
-        test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
+        # test_writer = tf.summary.FileWriter('logs/test', self.session.graph)
 
     def evaluate(self, oriImg, scale=1.0):
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
