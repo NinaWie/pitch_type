@@ -8,6 +8,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.merge import Concatenate
 import tensorflow as tf
 from keras import backend as K
+import matplotlib.pyplot as plt
 
 # Common deps
 import numpy as np
@@ -124,7 +125,8 @@ class FastModel:
         self.model = self.build_pose_estimation_model(img_input, VGG_BLOCK_DEF, HEATMAP_BLOCK_DEFS, PAF_BLOCK_DEFS)
         self.model.load_weights(TENSORFLOW_WEIGHTS_PATH)
 
-        self.model = self.compress_model(img_input)
+        # self.model = self.compress_model(img_input)
+        self.model = self.prune_model(img_input)
 
     def build_pose_estimation_model(self, img_input, vgg_block_def, heatmap_block_defs, paf_block_defs):
         stages = 6
@@ -152,7 +154,7 @@ class FastModel:
         return None
         # raise Exception('NO LAYER WITH NAME "%s" FOUND' % (with_name))
 
-    def decompose_weights(self, weights, keep_ratio = 0.5):
+    def decompose_weights_stack(self, weights, keep_ratio=0.5):
         fx, fy, d1, d2 = weights.shape
         flattened = np.reshape(weights, (fx * fy * d1, d2))
 
@@ -173,7 +175,7 @@ class FastModel:
 
         return Amat, Bmat, (U, smat, V)
 
-    onetime = False
+    onetime = 2
     def compress_block(self, in_block, printout=True):
         if printout: print '============== COMPRESS BLOCK =============='
 
@@ -185,15 +187,16 @@ class FastModel:
                 layer_name = names[ii]
                 should_pool = autopool and (ii is repeats - 1)
 
-                if bb is 0 and ii is 0 and layer_type is 'conv':
-                # if bb is 0 and ii is 0 and layer_type is 'conv' and not self.onetime:
-                    self.onetime = True
+                # if False:
+                # if bb is 0 and ii is 0 and layer_type is 'conv':
+                if layer_type is 'conv' and self.onetime is not 0:
+                    self.onetime -= 1
                     """
-                    Try compressing only first conv layers of blocks.
+                    Try compressing only a limited # of conv layers in blocks.
                     """
                     kerasnode = self.find_keras_node(layer_name, self.model)
                     weightmat, biasvect = kerasnode.get_weights()
-                    Amat, Bmat, (U, S, V) = self.decompose_weights(weightmat)
+                    Amat, Bmat, (U, S, V) = self.decompose_weights_xy(weightmat)
                     # FIXME: should_pool will be incorrect for final layers of blocks...
                     out_block.append(layer_def(layer_type, (Bmat.shape[2], args[1], [Amat, np.zeros(Amat.shape[-1])]), 1, should_pool, ['compressed_A_' + layer_name]))
                     out_block.append(layer_def(layer_type, (args[0], 1, [Bmat, biasvect]), 1, should_pool, ['compressed_B_' + layer_name]))
@@ -208,21 +211,13 @@ class FastModel:
 
     # def transfer_weights_to_compressed(self):
 
-    def compress_model(self, img_input):
+    def transfer_weights(self, to_model, all_blocks, printout=True):
+        if printout: print '============== WEIGHT TRANSFER =============='
 
-        # Build the structure of the compressed model.
-        cmp_vgg_block_def = self.compress_block(VGG_BLOCK_DEF)
-        cmp_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
-        cmp_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
-
-        cmp_model = self.build_pose_estimation_model(img_input, cmp_vgg_block_def, cmp_heatmap_block_defs, cmp_paf_block_defs)
-
-        # Given the block defs of the compressed model, transfer weights from original model.
-        print '============== WEIGHT TRANSFER =============='
         count_transferred = 0
         for layer in self.model.layers:
             if layer.get_weights():
-                node = self.find_keras_node(layer.name, cmp_model)
+                node = self.find_keras_node(layer.name, to_model)
                 if node:
                     weights = layer.get_weights()
                     node.set_weights(weights)
@@ -231,19 +226,109 @@ class FastModel:
         count_transferred_comp = 0
         names_index = 4
         args_index = 1
-        for block in [cmp_vgg_block_def] + cmp_heatmap_block_defs + cmp_paf_block_defs:
+        for block in all_blocks:
             for batchdef in block:
                 layer_name = batchdef[names_index][0]
-                if 'compressed' in layer_name:
+                if 'compressed' in layer_name or 'pruned' in layer_name:
                     _, _, weights = batchdef[args_index]
-                    node = self.find_keras_node(layer_name, cmp_model)
+                    node = self.find_keras_node(layer_name, to_model)
                     node.set_weights(weights)
                     count_transferred_comp += 1
-        print '| Transferred Original %d weights.' % count_transferred
-        print '| Set Compressed       %d weights.' % count_transferred_comp
+        if printout:
+            print '| Transferred Original %d weights.' % count_transferred
+            print '| Set Compressed       %d weights.' % count_transferred_comp
 
-        cmp_model.summary()
-        self.model.summary()
+    def prune_block(self, in_block, printout=True):
+        if printout: print '============== PRUNE FILTERS =============='
+
+        # for block_ii, layerdef in enumerate(in_block):
+        #     layer_type, args, repeats, autopool, names = layerdef
+
+        #     for ii in range(repeats):
+        #         layer_name = names[ii]
+        #         should_pool = autopool and (ii is repeats - 1)
+
+        #         out_block.append(layer_def(layer_type, args, 1, should_pool, [layer_name]))
+        out_block = []
+        first_block = in_block[0]
+        layer_type, args, _, autopools, _ = first_block
+        name1, name2 = first_block[-1]
+
+        kerasnode = self.find_keras_node(name1, self.model)
+        kerasnodeB = self.find_keras_node(name2, self.model)
+        wmat, bmat = kerasnode.get_weights()
+        print 'MatA:', wmat.shape, bmat.shape
+
+        keep_ratio = 0.5 # this percentage of top filts. will be kept
+        dist = np.zeros(wmat.shape[3])
+        for dim_j in range(wmat.shape[3]):
+            ijsum = 0
+            for dim_i in range(wmat.shape[2]):
+                Fij = wmat[:, :, dim_i, dim_j]
+                onenorm = la.norm(Fij, ord=1)
+                ijsum += onenorm
+            dist[dim_j] = ijsum
+        sort_inds = np.argsort(dist)
+
+        keep_amount = int(len(sort_inds) * keep_ratio)
+        print 'KEEP', keep_amount
+        top_inds = sort_inds[-keep_amount:]
+        top_filters = wmat[:, :, :, top_inds]
+        top_biases = bmat[top_inds]
+
+        print 'Top Filters:', top_filters.shape
+
+        wmatB, bmatB = kerasnodeB.get_weights()
+        print 'MatB:', wmatB.shape, bmatB.shape
+
+        wmatB = wmatB[:, :, top_inds, :]
+        print 'Change B to fit A:', wmatB.shape
+
+        # filter_rankings[layer.name] = sort_inds
+        relmax = np.max(dist - np.min(dist))
+        sorted_vals = (dist[sort_inds] - np.min(dist)) / relmax
+
+        plt.title(name1)
+        plt.scatter(range(len(dist)), sorted_vals)
+        plt.ion()
+        plt.show()
+
+        raw_input('[PROTO PRUNE]:')
+
+        # prefix = 'prn_'
+        prefix = 'pruned_'
+        repl1 = layer_def(layer_type, (keep_amount, args[1], [top_filters, top_biases]), 1, False, [prefix + name1])
+        repl2 = layer_def(layer_type, (args[0], args[1], [wmatB, bmatB]), 1, autopools, [prefix + name2])
+
+        return [repl1, repl2] + in_block[1:]
+
+    def prune_model(self, img_input):
+        prn_vgg_block_def = self.prune_block(VGG_BLOCK_DEF)
+        # prn_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
+        # prn_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
+
+        prn_model = self.build_pose_estimation_model(img_input, prn_vgg_block_def, HEATMAP_BLOCK_DEFS, PAF_BLOCK_DEFS)
+
+        # Given the block defs of the compressed model, transfer weights from original model.
+        all_blocks = [prn_vgg_block_def] + HEATMAP_BLOCK_DEFS + PAF_BLOCK_DEFS
+        self.transfer_weights(prn_model, all_blocks)
+
+        return prn_model
+
+    def compress_model(self, img_input):
+
+        # Build the structure of the compressed model.
+        cmp_vgg_block_def = self.compress_block(VGG_BLOCK_DEF)
+        # cmp_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
+        # cmp_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
+        cmp_heatmap_block_defs = HEATMAP_BLOCK_DEFS
+        cmp_paf_block_defs = PAF_BLOCK_DEFS
+
+        cmp_model = self.build_pose_estimation_model(img_input, cmp_vgg_block_def, cmp_heatmap_block_defs, cmp_paf_block_defs)
+
+        # Given the block defs of the compressed model, transfer weights from original model.
+        all_blocks = [cmp_vgg_block_def] + cmp_heatmap_block_defs + cmp_paf_block_defs
+        self.transfer_weights(cmp_model, all_blocks)
 
         return cmp_model
 

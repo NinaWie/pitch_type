@@ -30,7 +30,6 @@ if __name__ == '__main__':
 
     path_input_dat = input_file + '.dat'
 
-    video_capture = cv2.VideoCapture(input_file)
     for i in open(path_input_dat).readlines():
         datContent=ast.literal_eval(i)
     bottom_p=datContent['Pitcher']['bottom']
@@ -39,12 +38,22 @@ if __name__ == '__main__':
     top_p=datContent['Pitcher']['top']
     center_dic['Pitcher']=np.array([abs(top_p-bottom_p)/2., abs(left_p-right_p)/2.])
 
-    ret, frame = video_capture.read()
+    # video_capture = cv2.VideoCapture(input_file)
+    # ret, frame = video_capture.read()
+    frame = cv2.imread('./hi_pitcher_frame_1.png')
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    plt.imshow(frame)
+    plt.ion()
+    plt.show()
+    raw_input('[INPUT FRAME]:')
+
     if frame is None:
         print '| Video stream ended prematurely!'
         exit(1)
 
-    pitcher_img = frame[top_p:bottom_p, left_p:right_p]
+    # pitcher_img = frame[top_p:bottom_p, left_p:right_p]
+    pitcher_img = frame
     multiplier = [x * model_['boxsize'] / pitcher_img.shape[0] for x in param_['scale_search']]
     scale = multiplier[0]
 
@@ -71,4 +80,4 @@ if __name__ == '__main__':
     plt.ion()
     plt.show()
 
-    raw_input(':')
+    raw_input('[END PROGRAM]:')
