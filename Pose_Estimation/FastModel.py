@@ -9,6 +9,7 @@ from keras.layers.merge import Concatenate
 import tensorflow as tf
 from keras import backend as K
 import matplotlib.pyplot as plt
+plt.ion()
 
 # Common deps
 import numpy as np
@@ -219,6 +220,7 @@ class FastModel:
             if layer.get_weights():
                 node = self.find_keras_node(layer.name, to_model)
                 if node:
+                    # print layer.name
                     weights = layer.get_weights()
                     node.set_weights(weights)
                     count_transferred += 1
@@ -231,6 +233,7 @@ class FastModel:
                 layer_name = batchdef[names_index][0]
                 if 'compressed' in layer_name or 'pruned' in layer_name:
                     _, _, weights = batchdef[args_index]
+                    # print layer_name, weights[0].shape
                     node = self.find_keras_node(layer_name, to_model)
                     node.set_weights(weights)
                     count_transferred_comp += 1
@@ -241,66 +244,87 @@ class FastModel:
     def prune_block(self, in_block, printout=True):
         if printout: print '============== PRUNE FILTERS =============='
 
-        # for block_ii, layerdef in enumerate(in_block):
-        #     layer_type, args, repeats, autopool, names = layerdef
-
-        #     for ii in range(repeats):
-        #         layer_name = names[ii]
-        #         should_pool = autopool and (ii is repeats - 1)
-
-        #         out_block.append(layer_def(layer_type, args, 1, should_pool, [layer_name]))
         out_block = []
-        first_block = in_block[0]
-        layer_type, args, _, autopools, _ = first_block
-        name1, name2 = first_block[-1]
 
-        kerasnode = self.find_keras_node(name1, self.model)
-        kerasnodeB = self.find_keras_node(name2, self.model)
-        wmat, bmat = kerasnode.get_weights()
-        print 'MatA:', wmat.shape, bmat.shape
+        # First unwrap all repeats... otherwise too confusing!
+        for block_ii, layerdef in enumerate(in_block):
+            layer_type, args, repeats, autopool, names = layerdef
 
-        keep_ratio = 0.5 # this percentage of top filts. will be kept
-        dist = np.zeros(wmat.shape[3])
-        for dim_j in range(wmat.shape[3]):
-            ijsum = 0
-            for dim_i in range(wmat.shape[2]):
-                Fij = wmat[:, :, dim_i, dim_j]
-                onenorm = la.norm(Fij, ord=1)
-                ijsum += onenorm
-            dist[dim_j] = ijsum
-        sort_inds = np.argsort(dist)
+            for ii in range(repeats):
+                layer_name = names[ii]
+                should_pool = autopool and (ii is repeats - 1)
+                out_block.append(layer_def(layer_type, args, 1, should_pool, [layer_name]))
 
-        keep_amount = int(len(sort_inds) * keep_ratio)
-        print 'KEEP', keep_amount
-        top_inds = sort_inds[-keep_amount:]
-        top_filters = wmat[:, :, :, top_inds]
-        top_biases = bmat[top_inds]
+        # prune_inds = [0, 2] # 2 seems sensitive
+        prune_inds = [0, 4]
 
-        print 'Top Filters:', top_filters.shape
+        fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+        mags, slopes = axes.flat
+        mags.set_title('L1 of Filters')
+        slopes.set_title('Slope of L1 of Filters')
+        # Prune modifies sequential (L_i, L_i+1) layers.
+        for block_ii, layerdef in enumerate(out_block):
+            if block_ii not in prune_inds:
+                continue
 
-        wmatB, bmatB = kerasnodeB.get_weights()
-        print 'MatB:', wmatB.shape, bmatB.shape
+            next_layerdef = out_block[block_ii + 1]
+            name, next_name = layerdef[-1][0], next_layerdef[-1][0]
 
-        wmatB = wmatB[:, :, top_inds, :]
-        print 'Change B to fit A:', wmatB.shape
+            kerasnodeA = self.find_keras_node(name, self.model)
+            kerasnodeB = self.find_keras_node(next_name, self.model)
 
-        # filter_rankings[layer.name] = sort_inds
-        relmax = np.max(dist - np.min(dist))
-        sorted_vals = (dist[sort_inds] - np.min(dist)) / relmax
+            wmatA, bmatA = kerasnodeA.get_weights()
+            wmatB, bmatB = kerasnodeB.get_weights()
 
-        plt.title(name1)
-        plt.scatter(range(len(dist)), sorted_vals)
-        plt.ion()
-        plt.show()
+            keep_ratio = 0.5 # this percentage of top filts. will be kept
+            keep_amount = int(wmatA.shape[-1] * keep_ratio) # prune reduces output dim
 
-        raw_input('[PROTO PRUNE]:')
+            dist = np.zeros(wmatA.shape[3])
+            for dim_j in range(wmatA.shape[3]):
+                ijsum = 0
+                for dim_i in range(wmatA.shape[2]):
+                    Fij = wmatA[:, :, dim_i, dim_j]
+                    onenorm = la.norm(Fij, ord=1)
+                    ijsum += onenorm
+                dist[dim_j] = ijsum
+            sort_inds = np.argsort(dist)
 
-        # prefix = 'prn_'
-        prefix = 'pruned_'
-        repl1 = layer_def(layer_type, (keep_amount, args[1], [top_filters, top_biases]), 1, False, [prefix + name1])
-        repl2 = layer_def(layer_type, (args[0], args[1], [wmatB, bmatB]), 1, autopools, [prefix + name2])
+            top_inds = sort_inds[-keep_amount:]
+            top_filters = wmatA[:, :, :, top_inds]
+            top_bias = bmatA[top_inds]
 
-        return [repl1, repl2] + in_block[1:]
+            supp_filters = wmatB[:, :, top_inds, :]
+            supp_bias = bmatB
+
+
+            args, next_args = layerdef[1], next_layerdef[1]
+            pools, next_pools = layerdef[3], next_layerdef[3]
+            prefix = 'pruned_'
+            repl1 = layer_def(layer_type, (keep_amount, args[1], [top_filters, top_bias]), 1, pools, [prefix + name])
+            repl2 = layer_def(layer_type, (next_args[0], next_args[1], [supp_filters, supp_bias]), 1, next_pools, [prefix + next_name])
+            out_block[block_ii] = repl1
+            out_block[block_ii + 1] = repl2
+
+            if printout:
+                print '| [%d-%d]:' % (block_ii, block_ii + 1), name
+                print '| KEEP  : %.1f = %d' % (keep_ratio, keep_amount)
+                print '| Before:', wmatA.shape, wmatB.shape
+                print '| After :', top_filters.shape, supp_filters.shape
+                print '| AfterB:', top_bias.shape, supp_bias.shape
+
+            # Plot the distribution
+            relmax = np.max(dist - np.min(dist))
+            sorted_vals = (dist[sort_inds] - np.min(dist)) / relmax
+            # plt.cla()
+            # plt.title(name)
+            mags.scatter(np.arange(0, 100, 100 / float(len(sorted_vals))), sorted_vals)
+            subsample = sorted_vals[::4]
+            slopes.scatter(np.arange(0, 100, 100 / float(len(subsample))), np.gradient(subsample))
+            plt.tight_layout()
+            plt.show()
+            raw_input('[PROTO PRUNE]:')
+
+        return out_block
 
     def prune_model(self, img_input):
         prn_vgg_block_def = self.prune_block(VGG_BLOCK_DEF)

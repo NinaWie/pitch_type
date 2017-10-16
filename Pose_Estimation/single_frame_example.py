@@ -62,22 +62,33 @@ if __name__ == '__main__':
     frames_t0 = time.time()
     _, (heatmap2, _) = fast_model.evaluate(pitcher_img, scale=scale)
     print '| Time to process entire video:', time.time() - frames_t0
+
+    plt.ion()
+    plt.figure()
     fig, axes = plt.subplots(2, 4, figsize=(15, 10))
 
     def double_img(in_img):
         return cv2.resize(in_img, (0, 0), fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
 
+
     show_imgs = 4
-    for ii, ax in enumerate(axes.flat):
-        if ii < show_imgs:
-            ax.imshow(double_img(pitcher_img))
-            ax.imshow(double_img(heatmap[ii * 2]), alpha=0.5)
-        else:
-            ax.imshow(double_img(pitcher_img))
-            ax.imshow(double_img(heatmap2[(ii - show_imgs) * 2]), alpha=0.5)
+    iter = 0
+    last_ind = len(heatmap)
+    for ii in range(last_ind):
+        top_plot = axes.flat[iter]
+        bot_plot = axes.flat[show_imgs + iter]
 
-    plt.tight_layout()
-    plt.ion()
-    plt.show()
+        top_plot.imshow(double_img(pitcher_img))
+        top_plot.imshow(double_img(heatmap[ii]), alpha=0.5)
+        bot_plot.imshow(double_img(pitcher_img))
+        bot_plot.imshow(double_img(heatmap2[ii]), alpha=0.5)
+        iter += 1
 
-    raw_input('[END PROGRAM]:')
+        if (ii + 1) % show_imgs is 0 or ii is last_ind - 1:
+            plt.tight_layout()
+            plt.show()
+            if ii is last_ind - 1:
+                raw_input('[END PROGRAM]:')
+            else:
+                raw_input('[NEXT PLOTS ~%d]:' % (ii + 1))
+            iter = 0
