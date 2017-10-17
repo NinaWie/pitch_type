@@ -171,42 +171,28 @@ def training(files, dic_lab, save_path, sequ_len):
 
 
 def testing(files, dic, restore_path, sequ_len):
-    joints, labels = get_joint_array("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/sv_data.csv", files, "Pitcher", dic)
+    joints, labels, release = get_joint_array("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/sv_data.csv", files, "Pitcher", dic)
     joints_rel = joints[:, :, [7,8,10,11],:]
 
     joints_rel = Tools.normalize(joints_rel)
 
     print(joints_rel.shape, np.array(labels).shape)
-    bags = 167//sequ_len -2
-    print("bags", bags)
-    data = []
-    for bsp in joints_rel:
-        for i in range(bags):
-            data.append(bsp[i*sequ_len:(i+2)*sequ_len])
-    data = np.array(data)
-    #np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/bsp_data.npy", data)
-    #np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/bsp_labels.npy", labels)
-    print(data.shape)
-    # data = Tools.normalize(data)
-    lab, out = test(data, restore_path)
-    print("out", out.shape)
-    print(out)
-    truth_val = out[:, 1]
-    r = 0
-    for l in range(len(labels)):
-        res = []
-        for i in range(bags):
-            res.append(truth_val[(l*bags)+i])
-        # try:
-        #     result = (np.where(np.array(res)>0.9)[0][0]+1)*10
-        # except IndexError:
-        result = (np.argmax(res)+1)*sequ_len
-        print("result ", result, labels[l], "label")
-        if abs(result-labels[l])< sequ_len:
-            r+=1
-        else:
-            print(res)
-    print("Accuracy: ", r/float(len(labels)))
+
+    # for_position = Tools.normalize(joints[:,:,:12,:])
+    # lab, out = test(for_position, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/modelPosition")
+    # print("FINISHED FIRST", lab)
+
+    new = []
+    for j in range(len(joints_rel)):
+        r = int(release[j])
+        new.append(joints_rel[j, r-sequ_len:r])
+    joints_array = np.array(new)
+    print("joints array", joints_array.shape)
+    lab, out = test(joints_array, restore_path)
+    print("lab", lab)
+
+
+    # print("Accuracy: ", r/float(len(labels)))
 
 with open("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/first_move_frames.json", "r") as infile:
     dic_lab = json.load(infile)
@@ -217,4 +203,4 @@ print(len(all_files))
 # print(len(all_files))
 # print(all_files[:10])
 SEQU_LEN = 50
-training(all_files, dic_lab, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/first_move_more", SEQU_LEN)
+testing(all_files[:20], dic_lab, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/first_move_more", SEQU_LEN)

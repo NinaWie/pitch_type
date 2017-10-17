@@ -39,6 +39,21 @@ class Tools:
         print(labels[:20])
         return labels
 
+    def get_paths_from_games(game_ids, view):
+        dic = get_filesystem_dic("/scratch/nvw224/videos/atl/", view)
+        #print(dic)
+        dates_belonging = []
+        for g in game_ids:
+            if view == "side view":
+                new = g+".m4v"
+            else:
+                new = g+".mp4"
+            for key in dic.keys():
+                if new in dic[key]:
+                    dates_belonging.append(key)
+        assert(len(game_ids)==len(dates_belonging))
+        np.save("outs/dates.npy", dates_belonging)
+
 
     @staticmethod
     def onehot_encoding(labels):

@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 #import scipy as sp
 #import scipy.stats
+from scipy import ndimage
 import json
 
 import tflearn
@@ -22,7 +23,7 @@ from test import *
 #     dic = json.load(fin)
 
 load_preprocessing_parameters = None #"saved_models/modelPitchtype_new.json"
-save_path = "saved_models/modelPitchtype_new"
+save_path = "saved_models/modelPitchtype_smoothed"
 head_out = True
 CUT_OFF_Classes = 10
 
@@ -77,16 +78,19 @@ if save_path is not None and load_preprocessing_parameters is None:
 # prepro.set_labels_toWindup()
 
 
-if PATH is not "cf" or PATH is "sv":
+if PATH == "cf" or PATH == "sv":
     data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
-elif PATH is "concat":
+elif PATH == "concat":
     data = prepro.concat_with_second("sv_data.csv", None)
 elif PATH[-3:]=="npy":
     data = np.load(PATH)
     print("data loaded")
 else:
+    print("Wrong path")
+    import sys
+    sys.exit()
 
-
+data = ndimage.filters.gaussian_filter1d(data, axis = 1, sigma = 3)
 
 
 if head_out:
@@ -110,14 +114,14 @@ print(data.shape, len(labels_string), np.unique(labels_string))
 
 
 
-# runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
-#         act = tf.nn.relu, rate_dropout = 0,
-#         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-#         first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
-#         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-#         network = "adjustable conv1d")
-#
-# runner.start()
+runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
+        act = tf.nn.relu, rate_dropout = 0,
+        learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+        first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
+        second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
+        network = "adjustable conv1d")
+
+runner.start()
 
 def save_in_csv(labels):
     dic ={}
@@ -146,7 +150,7 @@ def save_in_csv(labels):
     df = pd.DataFrame.from_dict(dic)
     df.to_csv("pitch_types.csv")
 
-pitches_test, out_test = test(data, save_path)
+# pitches_test, out_test = test(data, save_path)
 
 #pitches_test = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/pitches_test.npy")
 #out_test = np.load("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/out_test.npy")
@@ -179,10 +183,10 @@ def compare_to_superclasses(labels_new, out):
 #np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/pitches_test.npy",pitches_test)
 #np.save("/Users/ninawiedemann/Desktop/UNI/Praktikum/numpy arrays/out_test.npy", out_test)
 
-pitches_test = compare_to_superclasses(pitches_test, out_test)
-save_in_csv(pitches_test)
-print(Tools.accuracy(pitches_test, labels_string))
-print("True                   Test                 ", np.unique(labels_string))
-# print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-for i in range(20):
-    print('{:20}'.format(labels_string[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
+# pitches_test = compare_to_superclasses(pitches_test, out_test)
+# save_in_csv(pitches_test)
+# print(Tools.accuracy(pitches_test, labels_string))
+# print("True                   Test                 ", np.unique(labels_string))
+# # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
+# for i in range(20):
+#     print('{:20}'.format(labels_string[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])

@@ -96,6 +96,18 @@ class Preprocessor:
         releases[np.where(releases>=maxi)] = mean
         return releases
 
+    @staticmethod
+    def clear_csv(file_path):
+        df = pd.read_csv(file_path)
+        for col in df.columns.tolist():
+            zeros = pd.isnull(df[col].values)
+            nr_null = np.sum(zeros)
+            #print(nr_null)
+            if nr_null>200:
+                df.drop(col, 1, inplace = True)
+        print(df.columns.tolist())
+        df.to_csv(filepath[:-4]+"_cut.csv")
+
 
     def balance(self):
         weights = compute_class_weight("auto", np.unique(self.cf["Pitch Type"].values),self.cf["Pitch Type"].values )

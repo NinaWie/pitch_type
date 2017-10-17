@@ -18,6 +18,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
+import json
 # from time_probe import tic, toc, time_summary
 
 param_, model_ = config_reader()
@@ -479,8 +480,92 @@ def mix_right_left(df,index,player):
     #print("Time for mix right left", toc-tic)
     return df
 
-
 def df_coordinates(df,centerd):
+    df.sort_values(by='Frame',ascending=1,inplace=True)
+    df.reset_index(inplace=True,drop=True)
+    df['Batter_player']=df['Batter'].copy()
+    df['Pitcher_player']=df['Pitcher'].copy()
+    for player in ['Batter','Pitcher']:
+        player2=player+'_player'
+        center=centerd[player]
+        old_norm=10000
+        indices=[6,9]
+        print df[player][0]
+        for person in range(len(df[player][0])):
+            hips=np.asarray(df[player][0][person])[indices]
+
+            hips=hips[np.sum(hips,axis=1)<>0]
+            mean_hips=np.mean(hips,axis=0)
+
+
+            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
+            if norm<old_norm:
+
+                loc=person
+                old_norm=norm
+
+        df[player2][0]=df[player][0][loc]
+        globals()['old_array_%s'%player]=np.asarray(df[player][0][loc])
+
+    for frame in df['Frame'][1:len(df)]:
+        for player in ['Batter','Pitcher']:
+            df,globals()['old_array_%s'%player]=player_localization(df,frame,player,globals()['old_array_%s'%player])
+
+    for player in player_list:
+        for index in index_list:
+            df=mix_right_left(df,index,player)
+    df=continuity(df,'Pitcher')
+    df=continuity(df,'Batter')
+
+    return df[['Frame','Pitcher_player','Batter_player']]
+
+
+def to_json(play, events_dic, save_path, position = None, pitchtype = None):
+    coordinates = ["x", "y"]
+    joints_list = ["right_shoulder", "left_shoulder", "right_elbow", "right_wrist","left_elbow", "left_wrist",
+            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle", "neck ",
+            "right_eye", "right_ear","left_eye", "left_ear"]
+    tic = time.time()
+    frames, joints, xy = play.shape
+    dic = {}
+    dic["timestamp"] = int(round(time.time() * 1000))
+    dic["Pitching position"]= position
+    dic["Pitch Type"] = pitchtype
+    dic["device"] = "?"
+    dic["deployment"] = "?"
+    dic["frames"] = []
+    for i in range(frames):
+        dic_joints = {}
+        for j in range(12): #joints):
+            dic_xy = {}
+            for k in range(xy):
+                dic_xy[coordinates[k]] = play[i,j,k]
+            dic_joints[joints_list[j]] = dic_xy
+        dic_joints["events"]=[]
+        for j in events_dic.keys():
+            if i==events_dic[j]:
+                dic_joints["events"].append({"timestamp": int(round(time.time() * 1000)), "name": j,"code": 1,
+                                    "target_name": "Pitcher", "target_id": 1})
+        dic["frames"].append(dic_joints)
+
+    with open(save_path+".json", 'w') as outfile:
+        json.dump(dic, outfile, indent=10)
+    print("Time for json ", time.time()-tic)
+
+
+def normalize(data):
+    """
+    normalizes across frames - axix to zero mean and standard deviation
+    """
+    M,N, nr_joints,_ = data.shape
+    means = np.mean(data, axis = 1)
+    std = np.std(data, axis = 1)
+    res = np.asarray([(data[:,i]-means)/(std+0.000001) for i in range(len(data[0]))])
+    data_new = np.swapaxes(res, 0,1)
+    return data_new
+
+
+def df_coordinates_weird(df,centerd):
     tic('DF_COORDINATES')
 
     tic('LOCALIZATION_PREPROC')

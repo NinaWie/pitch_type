@@ -1,5 +1,6 @@
 cf_data.csv
 sv_data.csv
+*.csv
 Pose_Estimation/model/pose_model.pth
 logs
 *.DS_Store
@@ -8,3 +9,4 @@ logs
 __pycache__
 Pose_Estimation/atl
 *.npy
+*.json

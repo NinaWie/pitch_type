@@ -180,7 +180,6 @@ class Runner(threading.Thread):
 
         loss_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits))
         loss_regularization = self.regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
-        # loss_maximum = tf.reduce_mean(tf.reduce_max(tf.nn.relu(y-out), axis = 1))
         loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
 
         # max_out = tf.argmax(out, axis = 1)
@@ -236,7 +235,7 @@ class Runner(threading.Thread):
         print("Loss", "Acc test", "Acc balanced")
         # Run session for self.EPOCHS
         for epoch in range(self.EPOCHS + 1):
-            for i, batch_x, batch_t in batches(train_x, train_t, nr_classes):
+            for i, batch_x, batch_t in balanced_batches(train_x, train_t, nr_classes):
                 summary, _ = sess.run([merged, optimizer], {x: batch_x, y: batch_t, training: True})
                 train_writer.add_summary(summary, i+self.batch_nr_in_epoch*epoch)
 
@@ -273,7 +272,7 @@ class Runner(threading.Thread):
         print("True                Test                 ", self.unique)
         # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
         for i in range(len(labels_string_test)):
-            print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
+            print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
 
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
