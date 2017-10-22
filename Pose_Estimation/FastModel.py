@@ -241,7 +241,7 @@ class FastModel:
             print '| Transferred Original %d weights.' % count_transferred
             print '| Set Compressed       %d weights.' % count_transferred_comp
 
-    def prune_block(self, in_block, printout=True):
+    def prune_block(self, in_block, prune_inds=[0, 2], printout=True):
         if printout: print '============== PRUNE FILTERS =============='
 
         out_block = []
@@ -256,7 +256,6 @@ class FastModel:
                 out_block.append(layer_def(layer_type, args, 1, should_pool, [layer_name]))
 
         # prune_inds = [0, 2] # 2 seems sensitive
-        prune_inds = [0, 4]
 
         fig, axes = plt.subplots(1, 2, figsize=(14, 7))
         mags, slopes = axes.flat
@@ -276,7 +275,7 @@ class FastModel:
             wmatA, bmatA = kerasnodeA.get_weights()
             wmatB, bmatB = kerasnodeB.get_weights()
 
-            keep_ratio = 0.5 # this percentage of top filts. will be kept
+            keep_ratio = 0.1 # this percentage of top filts. will be kept
             keep_amount = int(wmatA.shape[-1] * keep_ratio) # prune reduces output dim
 
             dist = np.zeros(wmatA.shape[3])
@@ -327,11 +326,17 @@ class FastModel:
         return out_block
 
     def prune_model(self, img_input):
-        prn_vgg_block_def = self.prune_block(VGG_BLOCK_DEF)
-        # prn_heatmap_block_defs = [self.compress_block(bdef) for bdef in HEATMAP_BLOCK_DEFS]
-        # prn_paf_block_defs = [self.compress_block(bdef) for bdef in PAF_BLOCK_DEFS]
+        prn_vgg_block_def = self.prune_block(VGG_BLOCK_DEF, prune_inds=[0, 4])
+        # prn_vgg_block_def = VGG_BLOCK_DEF
+        # prn_heatmap_block_defs = [self.prune_block(bdef, prune_inds=[0]) for bdef in HEATMAP_BLOCK_DEFS]
+        prn_heatmap_block_defs = HEATMAP_BLOCK_DEFS
+        # prn_paf_block_defs = [self.prune_block(bdef, prune_inds=[0]) for bdef in PAF_BLOCK_DEFS]
+        prn_paf_block_defs = PAF_BLOCK_DEFS
 
-        prn_model = self.build_pose_estimation_model(img_input, prn_vgg_block_def, HEATMAP_BLOCK_DEFS, PAF_BLOCK_DEFS)
+        prn_model = self.build_pose_estimation_model(img_input,
+            prn_vgg_block_def,
+            prn_heatmap_block_defs,
+            prn_paf_block_defs)
 
         # Given the block defs of the compressed model, transfer weights from original model.
         all_blocks = [prn_vgg_block_def] + HEATMAP_BLOCK_DEFS + PAF_BLOCK_DEFS
