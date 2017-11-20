@@ -6,8 +6,6 @@ import tensorflow as tf
 from scipy import ndimage
 import json
 
-import tflearn
-from tflearn import DNN
 
 #from sklearn.preprocessing import StandardScaler
 from data_preprocess import Preprocessor
@@ -23,16 +21,16 @@ from test import *
 #     dic = json.load(fin)
 
 load_preprocessing_parameters = None #"saved_models/modelPitchtype_new.json"
-save_path = "saved_models/modelPitchtype_smoothed"
+save_path = None #"saved_models/modelPitchtype_smoothed"
 head_out = True
 CUT_OFF_Classes = 10
 
 if load_preprocessing_parameters is None:
-    PATH = "cf"
+    PATH = "concat"
     CUT_OFF_Classes = 10
     align = False
-    normalize = True
-    position = None # "Stretch"
+    normalize = False
+    position = None
     unify_classes = False
 else:
     with open(load_preprocessing_parameters, 'r') as fin:
@@ -47,7 +45,7 @@ else:
 
 # PREPROCESS DATA
 if PATH == "cf" or PATH == "concat":
-    prepro = Preprocessor("cf_data.csv")
+    prepro = Preprocessor("cf_data_cut.csv")
     print("cf eingelsen")
 else:
     prepro = Preprocessor("sv_data.csv")
@@ -79,9 +77,9 @@ if save_path is not None and load_preprocessing_parameters is None:
 
 
 if PATH == "cf" or PATH == "sv":
-    data = prepro.get_coord_arr(None) #PATH+"_all_coord.npy")
+    data = np.load("saved_for_testing.npy") #prepro.get_coord_arr("saved_for_testing.npy") #PATH+"_all_coord.npy")
 elif PATH == "concat":
-    data = prepro.concat_with_second("sv_data.csv", None)
+    data = prepro.concat_with_second("sv_data_cut.csv", None)
 elif PATH[-3:]=="npy":
     data = np.load(PATH)
     print("data loaded")
@@ -90,7 +88,7 @@ else:
     import sys
     sys.exit()
 
-data = ndimage.filters.gaussian_filter1d(data, axis = 1, sigma = 3)
+# data = ndimage.filters.gaussian_filter1d(data, axis = 1, sigma = 3)
 
 
 if head_out:
@@ -107,7 +105,7 @@ labels_string = prepro.get_labels()
 if unify_classes:
     labels_string = Tools.labels_to_classes(labels_string)
 
-
+# data = Tools.do_pca(data, 5)
 
 print(data.shape, len(labels_string), np.unique(labels_string))
 
@@ -119,7 +117,7 @@ runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 60,
         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
         first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-        network = "adjustable conv1d")
+        network = "sv+cf")
 
 runner.start()
 

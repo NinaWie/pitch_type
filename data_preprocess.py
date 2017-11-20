@@ -3,6 +3,134 @@ import numpy as np
 import tensorflow as tf
 import scipy as sp
 import scipy.stats
+from os import listdir
+import json
+
+class JsonProcessor:
+    #def __init__(self):
+
+    def from_json(self, file):
+        coordinates = ["x", "y"]
+        joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
+                "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
+                "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
+        with open(file, 'r') as inf:
+            out = json.load(inf)
+
+        liste = []
+        for fr in out["frames"]:
+            l_joints = []
+            for j in joints_list[:12]:
+                l_coo = []
+                for xy in coordinates:
+                    l_coo.append(fr[j][xy])
+                l_joints.append(l_coo)
+            liste.append(l_joints)
+
+        return np.array(liste)
+
+    def get_label_release(self, play_list, csv_path, label_name, cut_off_min=70, cut_off_max=110):
+
+        df = pd.read_csv(csv_path)
+        game = df["play_id"].values.tolist()
+        event = df[label_name].values.tolist()
+        label = []
+
+        # Get release frame data for new videos (saved in dictionary instead of single dat files)
+        with open("Pose_Estimation/release_frame_new_cf.json", "r") as infile:
+            release_frame_json = json.load(infile)
+
+        for play in play_list:
+            try:
+                label_event = release_frame_json[play]
+            except KeyError:
+                # print("play not in release frame dic")
+                try:
+                    game_index = game.index(play)
+                    if event[game_index]<cut_off_min or event[game_index]>cut_off_max or np.isnan(event[game_index]):
+                        print("wrong label")
+                        label_event=0
+                    else:
+                        label_event = event[game_index]
+                except ValueError:
+                    print("play neither in csv not in json dic", play)
+                    label_event = 0
+            label.append(label_event)
+        return np.array(label)
+
+    def get_label_pitchtype(self, play_list, csvs, label_name):
+        game=[]
+        event=[]
+        for file_ in csvs:
+            df = pd.read_csv(file_)
+            df = df[df["Player"]=="Pitcher"]
+            game.append(df["play_id"].values.tolist())
+            event.append(df[label_name].values.tolist())
+        label = []
+        #print(game[0][:20], game[1][:20])
+        #print(event[0][:20], event[1][:20])
+        for play in play_list:
+            for i, g in enumerate(game):
+                #print(play)
+                try:
+                    game_index = g.index(play)
+                    label.append(event[i][game_index])
+                    #print(label[-1])
+                    break
+                except ValueError:
+                    if i== (len(game)-1):
+                        print("label not in any csv")
+                        label.append("Unknown Pitch Type")
+                    else: continue
+        return label
+
+    def get_data_concat(self, dir_cf, dir_sv, sequ_len=160, player="pitcher"):
+        dir_sv_list = listdir(dir_sv)
+        dir_cf_list = listdir(dir_cf)
+        play_list=[]
+        data=[]
+        cut = len(list("_"+player+".json"))
+        for f in dir_cf_list:
+            #print(player in f, f[-4:]=="json", f in dir_sv_list)
+            if player in f and f[-4:]=="json" and f in dir_sv_list:
+                data_cf = self.from_json(dir_cf+f)[:sequ_len, :12]
+                data_sv = self.from_json(dir_sv+f)[:sequ_len, :12]
+                if len(data_sv)<sequ_len or len(data_cf)<sequ_len:
+                    print("too short")
+                    continue
+                data.append(np.append(data_cf, data_sv, axis=2))
+                play_list.append(f[7:-cut])
+        return np.array(data), play_list
+
+
+    def get_data(self, inp_dir, sequ_len, player="pitcher"):
+        data = []
+
+        for view in range(len(inp_dir)):
+            play_list = []
+            for path in inp_dir[view]:
+                processed = listdir(path)
+                for files in processed:
+                    if player in files:
+
+                        if "new" in path:
+                            play = files.split("_")[1] #files.split("_")[0]+ "_" +
+                        else:
+                            play = files.split("_")[0][7:]
+                        if play in play_list:
+                            continue
+
+                        array = self.from_json(path+files)[:sequ_len, :12]
+                        if len(array)<sequ_len:
+                            print("too short", files)
+                            continue
+
+                        play_list.append(play)
+                        data.append(array)
+
+        print(np.array(data).shape, len(play))
+        return np.array(data), play_list
+
 
 class Preprocessor:
 # COORDINATES
@@ -86,6 +214,59 @@ class Preprocessor:
 
         return data
 
+    def concat_with_second(self, file2, save_name=None):
+        sv = pd.read_csv(file2)
+        sv = sv[sv["Player"]=="Pitcher"]
+        #for typ in self.smaller_min:
+        #    sv = sv.drop(sv[sv["Pitch Type"]==typ].index)
+
+        cf_plays = self.cf['play_id'].values
+        sv_plays = sv["play_id"].values
+
+        redundant = []
+        begin_sv = sv.columns.get_loc("0")
+        begin_cf = self.cf.columns.get_loc("0")
+        data_cf = self.cf.iloc[:, begin_cf:begin_cf+self.nr_frames].values
+        data_sv = sv.iloc[:, begin_sv:begin_sv+self.nr_frames].values
+        nr_joints = len(eval(data_cf[0,0]))
+        M,N = data_cf.shape
+        data = np.zeros((M,N,nr_joints,4))
+        for i in range(M):
+            if cf_plays[i] in sv_plays:
+                ind_sv = np.where(sv_plays==cf_plays[i])[0][0]
+                for j in range(N):
+                    if not pd.isnull(data_cf[i,j]):
+                        data[i,j,:,:2]=np.array(eval(data_cf[i,j]))
+                    else:
+                        data[i,j,:,:2] = data[i,j-1, :,:2]
+                    if not pd.isnull(data_sv[ind_sv,j]):
+                        #print(data_sv[ind_sv, j])
+                        try:
+                            data[i,j,:,2:]=np.array(eval(data_sv[ind_sv, j]))
+                        except:
+                            print(data_sv[ind_sv, j])
+                            data[i,j,:,2:] = data[i,j-1, :,2:]
+                    else:
+                        data[i,j,:,2:] = data[i,j-1, :,2:]
+            else:
+                redundant.append(i)
+        # print(data.shape)
+        # print(len(redundant))
+        # print("5",self.data.shape)
+        # print("6", self.label.shape)
+
+        new = np.delete(data, redundant, axis = 0)
+        # self.label = np.delete(self.cf["Pitch Type"].values, redundant, axis = 0)
+        # self.release_frame = self.cf['pitch_frame_index'].values
+        #print(new.shape)
+        # print("7",self.data.shape)
+        # print("8", self.label.shape)
+        if save_name!=None:
+            np.save(save_name, new)
+            print("Saved with name ", save_name)
+
+        return new
+
     def get_release_frame(self, mini, maxi):
         releases = self.release_frame
         over_min = releases[np.where(releases>mini)]
@@ -128,54 +309,6 @@ class Preprocessor:
                 self.cf.drop(self.cf.index[[i-c]], inplace = True)
                 c+=1
         self.label = np.array(new)
-
-    def concat_with_second(self, file2, save_name=None):
-        sv = pd.read_csv(file2)
-        sv = sv[sv["Player"]=="Pitcher"]
-        #for typ in self.smaller_min:
-        #    sv = sv.drop(sv[sv["Pitch Type"]==typ].index)
-
-        cf_plays = self.cf['play_id'].values
-        sv_plays = sv["play_id"].values
-
-        redundant = []
-        begin_sv = sv.columns.get_loc("0")
-        begin_cf = self.cf.columns.get_loc("0")
-        data_cf = self.cf.iloc[:, begin_cf:begin_cf+self.nr_frames].values
-        data_sv = sv.iloc[:, begin_sv:begin_sv+self.nr_frames].values
-        nr_joints = len(eval(data_cf[0,0]))
-        M,N = data_cf.shape
-        data = np.zeros((M,N,nr_joints,4))
-        for i in range(M):
-            if cf_plays[i] in sv_plays:
-                ind_sv = np.where(sv_plays==cf_plays[i])[0][0]
-                for j in range(N):
-                    if not pd.isnull(data_cf[i,j]):
-                        data[i,j,:,:2]=np.array(eval(data_cf[i,j]))
-                    else:
-                        data[i,j,:,:2] = data[i,j-1, :,:2]
-                    if not pd.isnull(data_sv[ind_sv,j]):
-                        data[i,j,:,2:]=np.array(eval(data_sv[ind_sv, j]))
-                    else:
-                        data[i,j,:,2:] = data[i,j-1, :,2:]
-            else:
-                redundant.append(i)
-        # print(data.shape)
-        # print(len(redundant))
-        # print("5",self.data.shape)
-        # print("6", self.label.shape)
-
-        new = np.delete(data, redundant, axis = 0)
-        # self.label = np.delete(self.cf["Pitch Type"].values, redundant, axis = 0)
-        # self.release_frame = self.cf['pitch_frame_index'].values
-        #print(new.shape)
-        # print("7",self.data.shape)
-        # print("8", self.label.shape)
-        if save_name!=None:
-            np.save(save_name, new)
-            print("Saved with name ", save_name)
-
-        return new
 
     def get_list_with_most(self, column):
         pitcher = self.cf[column].values #.astype(int)

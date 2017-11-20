@@ -1,2 +1,2 @@
-model_checkpoint_path: "modelPitchtype_new"
-all_model_checkpoint_paths: "modelPitchtype_new"
+model_checkpoint_path: "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/saved_models/pitch_type_svcf"
+all_model_checkpoint_paths: "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/saved_models/pitch_type_svcf"

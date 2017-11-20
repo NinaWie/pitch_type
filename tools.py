@@ -19,6 +19,14 @@ class Tools:
         return data_new
 
     @staticmethod
+    def normalize01(data):
+        maxi = np.amax(data, axis=1)
+        mini = np.amin(data, axis = 1)
+        res = np.asarray([(data[:,i]-mini)/(maxi-mini) for i in range(len(data[0]))])
+        data_new = np.swapaxes(res, 0,1)
+        return data_new
+
+    @staticmethod
     def renormalize(data, means, std, one_pitch=None):
         if one_pitch is None:
             res = np.asarray([data[:,i]*std+means for i in range(len(data[0]))])
@@ -39,6 +47,7 @@ class Tools:
         print(labels[:20])
         return labels
 
+    @staticmethod
     def get_paths_from_games(game_ids, view):
         dic = get_filesystem_dic("/scratch/nvw224/videos/atl/", view)
         #print(dic)
@@ -72,13 +81,17 @@ class Tools:
     def onehot_with_unique(labels, unique):
         """ one hot encoding if unique is already known
         use this one if restore, to avoid different nr of CUT_OFF_Classes"""
-        one_hot_labels = np.zeros((len(labels), len(unique)))
-        for i in range(len(labels)):
-            #print(cf.iloc[i,loc])
-            pitch = labels[i]
-            ind = unique.index(pitch)
-            one_hot_labels[i, ind] = 1
-        return one_hot_labels
+        if len(unique)==1:
+            range_nr = unique[0]
+            return labels/float(range_nr)
+        else:
+            one_hot_labels = np.zeros((len(labels), len(unique)))
+            for i in range(len(labels)):
+                #print(cf.iloc[i,loc])
+                pitch = labels[i]
+                ind = unique.index(pitch)
+                one_hot_labels[i, ind] = 1
+            return one_hot_labels
 
     @staticmethod
     def align_frames(data, release_frame, fr_before, fr_after):
@@ -112,6 +125,8 @@ class Tools:
         returns: array of size data_length containing the pitch type as a string
         """
         #unique  = np.unique(cf["Pitch Type"].values)
+        if len(unique)==1:
+            return np.asarray(results*unique[0], dtype = int)
         p = []
         for _, pitch in enumerate(results):
             ind = np.argmax(pitch)
@@ -239,3 +254,19 @@ class Tools:
     @staticmethod
     def accuracy(out, ground_truth):
         return np.sum(np.array(ground_truth)==np.array(out))/float(len(out))
+
+    @staticmethod
+    def do_pca(data, nr_components):
+        from sklearn.decomposition import PCA
+        M, frames, joi, xy = data.shape
+        res = data.reshape(M,frames,joi*xy)
+        res = res.reshape(M*frames, joi*xy)
+        #print(data[1,3])
+        #print(res[170])
+        print(res.shape)
+        pca = PCA(n_components=nr_components)
+        new_data = pca.fit_transform(res)
+        # new_data = pca.transform(res)
+        print(new_data.shape)
+        new = new_data.reshape(M,frames, nr_components, 1)
+        return new

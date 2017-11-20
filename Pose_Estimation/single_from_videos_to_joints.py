@@ -76,6 +76,7 @@ if True: #__name__ == "__main__":
     p=0
     events_dic = {}
     found = False
+    events_dic["start_time"] = time.time()
     while True:
 # Capture frame-by-frame
         ret, frame = video_capture.read()
@@ -101,7 +102,7 @@ if True: #__name__ == "__main__":
     sess.close()
 
     tic2 = time.time()
-    df_res= df_coordinates(df,center_dic)
+    df_res= df_coordinates(df,center_dic, ["Pitcher", "Batter"])
     print("time for df_coordinates", time.time()-tic2)
     pitcher_array = np.zeros((1, 167, 18,2))
     batter_array = np.zeros((1, 167, 18,2))
@@ -136,10 +137,10 @@ if True: #__name__ == "__main__":
 
     # NEW: JSON FORMAT
     game_id = f.split("/")[-1][:-4]
-    file_path_pitcher = out_dir+game_id+"_pitcher_joints.json"
-    file_path_batter = out_dir+game_id+"_batter_joints.json"
+    file_path_pitcher = out_dir+game_id+"_pitcher_joints"
+    file_path_batter = out_dir+game_id+"_batter_joints"
     print(events_dic, file_path_pitcher)
-    to_json(pitcher_array[0], events_dic, file_path_pitcher, position=pos)
+    to_json(pitcher_array[0], events_dic, file_path_pitcher, position=pos, frames_per_sec=???)
     to_json(batter_array[0], {}, file_path_batter)
 
     toctoc=time.time()

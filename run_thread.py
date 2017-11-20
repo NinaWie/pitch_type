@@ -47,7 +47,7 @@ class Runner(threading.Thread):
             network = "adjustable conv1d"):
         threading.Thread.__init__(self)
         self.data = data
-        self.labels_string = labels_string
+        self.labels_string = np.array(labels_string)
         self.unique  = np.unique(labels_string).tolist()
         self.SAVE = SAVE
         self.BATCH_SZ=BATCH_SZ
@@ -102,21 +102,21 @@ class Runner(threading.Thread):
             val_x = testing[-40:]
             labels_string_train = self.labels_string[train_ind]
             labels_string_testing = self.labels_string[test_ind]
-            labels_string_test = labels_string_testing[:-40]
-            labels_string_val = labels_string_testing[-40:]
+            labels_string_test = labels_string_testing[:-10]
+            labels_string_val = labels_string_testing[-10:]
             train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
-            train_t = Tools.onehot_with_unique(labels_string_train, self.unique.tolist())
-            test_t = Tools.onehot_with_unique(labels_string_test, self.unique.tolist())
+            train_t = Tools.onehot_with_unique(labels_string_train, self.unique)
+            test_t = Tools.onehot_with_unique(labels_string_test, self.unique)
             print("Train", train_x.shape, train_t.shape, labels_string_train.shape, "Test", test_x.shape, test_t.shape, labels_string_test.shape, "Val", val_x.shape, labels_string_val.shape)
             len_train, N, nr_joints, nr_coordinates = train_x.shape
             tr_x = train_x.reshape(len_train, N, nr_joints*nr_coordinates)
             te_x = test_x.reshape(len(test_x), N, nr_joints*nr_coordinates)
             val = val_x.reshape(len(val_x), N, nr_joints*nr_coordinates)
 
-            out, self.network = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes,self.nr_layers, self.n_hidden, self.rate_dropout)
-            m = DNN(self.network)
+            out, net = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes,self.nr_layers, self.n_hidden, self.rate_dropout)
+            m = DNN(net)
             m.fit(tr_x, train_t, validation_set=(te_x, test_t), show_metric=True, batch_size=self.BATCH_SZ, snapshot_step=1000, n_epoch=self.EPOCHS)
-            labels_string_test = labels_string_test[:40]
+            # labels_string_test = labels_string_test[:40]
             out_test = m.predict(val)
             pitches_test = Tools.decode_one_hot(out_test, self.unique)
             print("Accuracy test: ", Tools.accuracy(pitches_test, labels_string_val))
@@ -134,7 +134,16 @@ class Runner(threading.Thread):
         BATCHSIZE = nr_classes*ex_per_class
 
         train_x = self.data[train_ind]
+        me = np.mean(train_x)
+        std = np.std(train_x)
         test_x = self.data[test_ind]
+
+        train_x = (train_x - me)/std
+        test_x = (test_x -me)/std
+
+        print("mean of train", np.mean(train_x))
+        print("mean of test", np.mean(test_x))
+
         train_t= labels[train_ind]
         test_t = labels[test_ind]
         labels_string_train = self.labels_string[train_ind]
@@ -144,7 +153,8 @@ class Runner(threading.Thread):
         #train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
         index_liste = []
         for pitches in self.unique:
-            index_liste.append(np.where(labels_string_train==pitches))
+            index_liste.append(np.where(labels_string_train==pitches)[0])
+        #print(index_liste)
         len_test = len(test_x)
         len_train = len(train_x)
 
@@ -170,17 +180,54 @@ class Runner(threading.Thread):
         elif self.network == "conv 1st move":
             out, logits = model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+        elif self.network == "combined":
+            out_normal, logits = model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+            out_normal = tf.reshape(out_normal, (-1, self.unique[0], 1, 1))
+            wrist_ellbow_right = tf.reduce_mean(x[:, :, 1:3, 1], 2) # y coordinate of ellbow and wrist
+            print(wrist_ellbow_right)
+            wrist_ellbow_left = tf.reduce_mean(x[:, :, 4:6, 1], 2)
+            print(wrist_ellbow_left)
+            shoulder_left = tf.reshape(x[:, :, 0, 1], (-1,  self.unique[0], 1))
+            shoulder_right = tf.reshape(x[:, :, 3, 1], (-1,  self.unique[0], 1))
+            print(shoulder_right)
+            shoulder_both = tf.concat([shoulder_left, shoulder_right],2)
+            print(shoulder_both)
+            shoulders = tf.reduce_mean(shoulder_both, 2)  # y coordinate of shoulders
+            print(shoulders)
+            new_x = tf.reshape(tf.concat([tf.reshape(wrist_ellbow_right-shoulders, (-1, self.unique[0], 1)), tf.reshape(wrist_ellbow_left-shoulders, (-1, self.unique[0], 1))], 2), (-1, self.unique[0], 2, 1))
+            print(new_x)
+            #out_wrist_ellbow, logits = model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+            #                                            self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+            combined_x = tf.concat([out_normal, new_x], 2)
+            out, logits = model.conv1d_with_parameters(combined_x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                        self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+        elif self.network == "sv+cf":
+            out_cf, logits_cf = model.conv1stmove(x[:,:,:,:2], nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+
+            out_sv, logits_sv = model.conv1stmove(x[:,:,:,2:], nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+            combined_x = tf.reshape(tf.concat([out_cf, out_sv], 2), (-1, N, 2,1))
+            out, logits = model.conv1d_with_parameters(combined_x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                        self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         else:
-            print("ERROR, WRONG self.network INPUT")
+            print("ERROR, WRONG", self.network, "INPUT")
 
         tv = tf.trainable_variables()
 
         out = tf.identity(out, "out")
         uni = tf.constant(self.unique, name = "uni")
 
-        loss_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits))
-        loss_regularization = self.regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
-        loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
+        if len(self.unique)==1:
+            out = tf.sigmoid(logits)
+            loss = tf.reduce_mean(tf.square(y - out))
+        else:
+            loss_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=logits))
+            loss_regularization = self.regularization * tf.reduce_sum([ tf.nn.l2_loss(v) for v in tv ])
+            loss = loss_entropy + loss_regularization #+  loss_maximum #0.001  loss_entropy +
+
+
 
         # max_out = tf.argmax(out, axis = 1)
         # max_lab = tf.argmax(y, axis = 1)
@@ -200,8 +247,8 @@ class Runner(threading.Thread):
 
         saver = tf.train.Saver(tv)
 
-        tf.summary.scalar("loss_entropy", loss_entropy)
-        tf.summary.scalar("loss_regularization", loss_regularization)
+        #tf.summary.scalar("loss_entropy", loss_entropy)
+        #tf.summary.scalar("loss_regularization", loss_regularization)
         # tf.summary.scalar("loss_maximum", loss_maximum)
         tf.summary.scalar("loss", loss)
 
@@ -218,7 +265,7 @@ class Runner(threading.Thread):
                 liste=np.zeros((nr_classes, ex_per_class))
                 for i in range(nr_classes):
                     # print(j, i, np.random.choice(index_liste[i][0], ex_per_class))
-                    liste[i] = np.random.choice(index_liste[i][0], ex_per_class, replace=True)
+                    liste[i] = np.random.choice(index_liste[i], ex_per_class, replace=True)
                 liste = liste.flatten().astype(int)
                 yield j, x[liste], y[liste]
 
@@ -262,24 +309,28 @@ class Runner(threading.Thread):
         print("\n\n\n---------------------------------------------------------------------")
         #print("NEW PARAMETERS: ", BATCHSIZE, self.EPOCHS, self.act, self.align, self.batch_nr_in_epoch, self.rate_dropout, self.learning_rate, len_train, self.n_hidden, self.nr_layers, self.network, nr_classes, nr_joints)
         #Test Accuracy
-        print("Losses", losses)
-        print("Accuracys test: ", acc_test)
+        #print("Losses", losses)
+        #print("Accuracys test: ", acc_test)
         #print("Accuracys train: ", acc_train)
         print("\nMAXIMUM ACCURACY TEST: ", max(acc_test))
         #print("MAXIMUM ACCURACY TRAIN: ", max(acc_train))
 
-        print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
+        #print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
         print("True                Test                 ", self.unique)
+        if len(self.unique)==1:
+            for i in range(10): #len(labels_string_test)):
+                print(labels_string_test[i], pitches_test[i])
+        else:
         # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-        for i in range(len(labels_string_test)):
-            print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
+            for i in range(len(labels_string_test)):
+                print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
 
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 
         pitches = np.append(pitches_test, pitches_train, axis = 0)
         labs = np.append(labels_string_test, labels_string_train, axis = 0)
-        print("ACCURACY TOTAL", Tools.accuracy_in_range(pitches, labs, 5))
+        print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
         return pitches_test, pitches_train
 
 #runner = Runner()

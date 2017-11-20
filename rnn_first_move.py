@@ -3,8 +3,7 @@ import numpy as np
 import tensorflow as tf
 import scipy as sp
 import scipy.stats
-import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 from tools import Tools
 from model import Model
 import tflearn
@@ -13,6 +12,8 @@ import json
 
 from run_thread import Runner
 from test import test
+from os import listdir
+import codecs
 
 def other_method_predict_sequ():
     SEP = int(len(data)*0.9)
@@ -135,6 +136,172 @@ def training(files, dic_lab, save_path, sequ_len):
     runner.unique = np.arange(0, 167,1).tolist()
     runner.start()
 
+def extend_data(joints_array_batter, labels):
+    def shift_trajectory(play, label, shift):
+        new = np.roll(play, shift, axis = 0)
+        for i in range(abs(shift)):
+            if shift>0:
+                new[i]=new[shift]
+            else:
+                new[-i-1]=new[shift-1]
+        return new, label+shift
+
+    shifts = [-15, -12, -10, -7, -5, 5]
+    stretch = [0.5, 0.75, 1.25, 1.5]
+    variations = []
+    for s in shifts:
+        for st in stretch:
+            variations.append((s, st))
+    # variations = [(-15, 0.5), (-15, 0.75), (-15, 1.25), (-15, 1.5), (-10, 0.5),
+    #               (-10, 0.75), (-10, 1.25), (-10, 1.5), (-5, 0.5), (-5, 0.75),
+    #               (-5, 1.25), (-5, 1.5), (5, 0.5), (5, 0.75), (5, 1.25), (5, 1.5),
+    #               (10, 0.5), (10, 0.75), (10, 1.25), (10, 1.5), (15, 0.5), (15, 0.75), (15, 1.25), (15, 1.5)]
+    norm = Tools.normalize01(joints_array_batter).tolist()
+    #labels = labels.tolist()
+    M, N, j, xy = joints_array_batter.shape
+    more_data = np.zeros((M*6, N, j, xy))
+    more_data[:M]=np.array(norm)
+    ind = M
+    for i in range(len(norm)):
+        var = np.array(variations)[np.random.permutation(len(variations))[:5]]
+        for j in var:
+            #print(i,j)
+            new_data, new_label = shift_trajectory(np.array(norm[i]**j[1]), labels[i], int(j[0]))
+            more_data[ind] = new_data
+            labels.append(new_label)
+            ind+=1
+    return more_data, labels
+
+def batter_testing(restore_path, cutoff):
+    path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/video_to_pitchtype_directly/out_testing_batter/"
+    joints_array_batter = []
+    files = []
+    release = []
+
+    with open(path+"release_frames", "r") as infile:
+        release_frame = json.load(infile)
+    print(release_frame)
+
+    for fi in listdir(path):
+        if fi[-5:]==".json":
+            try:
+                release.append(release_frame[fi[:-5]])
+            except KeyError:
+                # print("relase frame not in json")
+                continue
+            files.append(fi[:-5])
+            obj_text = codecs.open(path+fi, encoding='utf-8').read()
+            joints_array_batter.append(json.loads(obj_text))
+    joints_array_batter = np.array(joints_array_batter)[:,:,:12,:]
+    print(joints_array_batter.shape)
+
+    ## new: with release
+    cut_to_release = []
+    assert(len(release)==len(joints_array_batter))
+    for i, rel in enumerate(release):
+        if rel>75 and rel<110:
+            r = int(rel)
+        else:
+            r = int(np.median(release))
+            release[i] = r
+            print("mean")
+        print(r)
+        cut_to_release.append(joints_array_batter[i,r:r+cutoff])
+    #labels = np.array(labels)
+    # joints_array_batter = ndimage.filters.gaussian_filter1d(joints_array_batter, axis =1, sigma = 3)
+    joints_array_batter  = np.array(cut_to_release)
+    ## new: with release
+
+
+    data = Tools.normalize01(joints_array_batter)
+    lab, out = test(data, restore_path)
+    print(lab)
+    dic = {}
+    assert(len(lab)==len(files))
+    for i in range(len(files)):
+        dic[files[i]]= float(lab[i]+release[i])
+    print(dic)
+    with open("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/labels_testing", "w") as outfile:
+        json.dump(dic, outfile)
+
+
+def batter_training(save_path, cutoff):
+    csv = pd.read_csv("/Users/ninawiedemann/Desktop/UNI/Praktikum/csvs/csv_new_videos.csv")
+    path1="/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/video_to_pitchtype_directly/out_new_batter/"
+    path2 = "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/video_to_pitchtype_directly/out_new_new_batter/"
+    joints_array_batter = []
+    files = []
+    labels = []
+    #play_outcome = []
+    release = []
+
+    with open(path1+"release_frames Kopie", "r") as infile:
+        release_frame = json.load(infile)
+
+    with open("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/labels_first_move", "r") as infile:
+        labels_dic = json.load(infile)
+
+    for fi in list(labels_dic.keys()):
+        try:
+            release.append(release_frame[fi])
+        except KeyError:
+            continue
+        files.append(fi)
+        if fi+".json" in listdir(path1):
+            path = path1
+        elif fi+".json" in listdir(path2):
+            path = path2
+        else:
+            print("file not found")
+        obj_text = codecs.open(path+fi+".json", encoding='utf-8').read()
+        joints_array_batter.append(json.loads(obj_text))
+        labels.append(labels_dic[fi])
+
+    print(np.array(joints_array_batter).shape)
+    print(labels)
+    print(release)
+    joints_array_batter = np.array(joints_array_batter)[:,:,:12,:]
+    cut_to_release = []
+    assert(len(release)==len(joints_array_batter))
+    for i, rel in enumerate(release):
+        if rel>75 and rel<110:
+            r = int(rel)
+        else:
+            r = int(np.median(release))
+            print("mean")
+        print(r)
+        cut_to_release.append(joints_array_batter[i,r:r+cutoff])
+        print("old label", labels[i])
+        labels[i] = labels[i]-r
+        print("new label", labels[i])
+    #labels = np.array(labels)
+    # joints_array_batter = ndimage.filters.gaussian_filter1d(joints_array_batter, axis =1, sigma = 3)
+    joints_array_batter  = np.array(cut_to_release)
+    print(joints_array_batter.shape)
+    print(labels)
+    more_data, new_labels = extend_data(joints_array_batter, labels)
+
+    print(more_data.shape)
+
+    # runner = Runner(more_data, new_labels, SAVE = save_path, BATCH_SZ=40, EPOCHS = 400, batch_nr_in_epoch = 50,
+    #         act = tf.nn.relu, rate_dropout = 0,
+    #         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+    #         first_conv_filters=12, first_conv_kernel=3, second_conv_filter=12,
+    #         second_conv_kernel=3, first_hidden_dense=128, second_hidden_dense=56,
+    #         network = "conv 1st move")
+    # runner.unique = np.arange(0, cutoff,1).tolist()
+    # runner.start()
+
+    runner = Runner(more_data, np.reshape(new_labels, (-1, 1)), SAVE = save_path, BATCH_SZ=40, EPOCHS = 500, batch_nr_in_epoch = 50,
+            act = tf.nn.relu, rate_dropout = 0,
+            learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
+            first_conv_filters=12, first_conv_kernel=3, second_conv_filter=12,
+            second_conv_kernel=3, first_hidden_dense=128, second_hidden_dense=56,
+            network = "adjustable conv1d")
+    runner.unique = [cutoff]
+    runner.start()
+
+
 
 def testing(files, dic, restore_path, sequ_len):
     joints, labels = get_joint_array("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/sv_data.csv", files, "Pitcher", dic)
@@ -174,12 +341,14 @@ def testing(files, dic, restore_path, sequ_len):
             print(res)
     print("Accuracy: ", r/float(len(labels)))
 
-with open("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/first_move_frames.json", "r") as infile:
-    dic_lab = json.load(infile)
-all_files = list(dic_lab.keys())
-print(len(all_files))
-# files = all_files[:-10]
+# with open("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/notebooks/first_move_frames.json", "r") as infile:
+#     dic_lab = json.load(infile)
+# all_files = list(dic_lab.keys())
 # print(len(all_files))
-# print(all_files[:10])
-SEQU_LEN = 5
-training(all_files, dic_lab, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/first_move_more", SEQU_LEN)
+# # files = all_files[:-10]
+# # print(len(all_files))
+# # print(all_files[:10])
+# SEQU_LEN = 5
+# training(all_files, dic_lab, "/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/first_move_more", SEQU_LEN)
+
+batter_training("/Users/ninawiedemann/Desktop/UNI/Praktikum/saved_models/batter_first_move", 66)

@@ -18,6 +18,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
+from scipy.spatial.distance import cdist
 import json
 # from time_probe import tic, toc, time_summary
 
@@ -26,25 +27,30 @@ param_, model_ = config_reader()
 USE_GPU = param_['use_gpu']
 TORCH_CUDA = lambda x: x.cuda() if USE_GPU else x
 
+important_joints = [0,3,6,7,8,9,10,11]
 limb_list=['shoulder','elbow','wrist','hip','knee','ankle','Neck','eye','ear']
-player_list=['Batter','Pitcher']
+# player_list=['Pitcher']
 col_pitcher=['Pitcher_Right_shoulder','Pitcher_Left_shoulder','Pitcher_Right_elbow','Pitcher_Right_wrist','Pitcher_Left_elbow','Pitcher_Left_wrist','Pitcher_Right_hip','Pitcher_Right_knee','Pitcher_Right_ankle','Pitcher_Left_hip','Pitcher_Left_knee','Pitcher_Left_ankle','Pitcher_Neck','Pitcher_Right_eye','Pitcher_Right_ear','Pitcher_Left_eye','Pitcher_Left_ear']
 col_batter=['Batter_Right_shoulder','Batter_Left_shoulder','Batter_Right_elbow','Batter_Right_wrist','Batter_Left_elbow','Batter_Left_wrist','Batter_Right_hip','Batter_Right_knee','Batter_Right_ankle','Batter_Left_hip','Batter_Left_knee','Batter_Left_ankle','Batter_Neck','Batter_Right_eye','Batter_Right_ear','Batter_Left_eye','Batter_Left_ear']
 
-index_shoulder=[0,1]
-index_elbow=[2,4]
-index_wrist=[3,5]
+# joints_for_cdist = [0,1,6,7,8,9,10,11]
+
+index_shoulder=[0,3]
+index_elbow=[1,4]
+index_wrist=[2,5]
 index_hip=[6,9]
 index_knee=[7,10]
 index_ankle=[8,11]
-index_eye=[13,15]
-index_ear=[14,16]
+index_eye=[12,14]
+index_ear=[13,15]
+
 index_list=[index_shoulder,index_elbow,index_wrist,index_hip,index_knee,index_ankle,index_eye,index_ear]
 head=0
 weight_name = './model/pose_model.pth'
 
 
 from os import listdir
+print(important_joints)
 print(listdir("./model"))
 
 torch.set_num_threads(torch.get_num_threads())
@@ -378,43 +384,34 @@ def handle_one(oriImg):
                     row[-1] = 2
                     row[-2] = sum(candidate[connection_all[k][i,:2].astype(int), 2]) + connection_all[k][i][2]
                     subset = np.vstack([subset, row])
-    #print("handle one 6", time.time()-tic)
-    # delete some rows of subset which has few parts occur
-    #deleteIdx = [];
-    #for i in range(len(subset)):
-    #    if subset[i][-1] < 4 or subset[i][-2]/subset[i][-1] < 0.4:
-    #        deleteIdx.append(i)
-    #temp = np.delete(subset, deleteIdx, axis=0)
 
 
-#    canvas = cv2.imread(test_image) # B,G,R order
-
+    # deleteIdx = [];
+    # for i in range(len(subset)):
+    #     if subset[i][-1] < 4 or subset[i][-2]/subset[i][-1] < 0.4:
+    #         deleteIdx.append(i)
+    # subset = np.delete(subset, deleteIdx, axis=0)
 
 
     output_coordinates=np.zeros((len(subset),18,2))
-
-
-
-    for i in range(18):
-        for n in range(len(subset)):
-            index = subset[n][np.array(limbSeq[i])-1]
-            if -1 in index:
+    for n in range(len(subset)):
+        later = []
+        for i in range(18):
+            j = int(subset[n][i])
+            if j==-1:
                 continue
-            Y = candidate[index.astype(int), 0]
-            X = candidate[index.astype(int), 1]
-            mX = np.mean(X)
-            mY = np.mean(Y)
-            output_coordinates[n,i,0]=mX
-            output_coordinates[n,i,1]=mY
+            output_coordinates[n,i-2,0]= candidate[j, 0]
+            output_coordinates[n,i-2,1]= candidate[j, 1]
     return output_coordinates
 
 
 
 
-def player_localization(df,frame,player,old_array):
+def player_localization_ratio(df,frame,player,old_array, body_dist):
     tic = time.time()
     player2=player+'_player'
     dist=[]
+    ratios = []
     for i in range(np.asarray(df[player][frame]).shape[0]):
         zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]!=0)
         zerrow2=np.where(old_array[:,0]!=0)
@@ -423,26 +420,86 @@ def player_localization(df,frame,player,old_array):
         if len(zerrow)<2:
             zerrow=zerrow2
         dist.append(np.linalg.norm(np.asarray(df[player][frame])[i,zerrow[0],:]-old_array[zerrow[0],:])/len(zerrow))
+
+        p = df[player][frame][i][joints_for_cdist]
+        player_dist = cdist(p,p)
+        ratios.append(np.linalg.norm(body_dist-player_dist))
     #print dist
     #print df[player][frame]
-    if len(dist)==0 or np.min(dist)>3:
+    if len(dist)==0 or np.min(ratios)>400:
         df[player2][frame]=[[0,0] for i in range(18)]
     else:
         df[player2][frame]=df[player][frame][np.argmin(dist)]
     array_stored=np.asarray(df[player2][frame])
     array_stored[np.where(array_stored==0)]=old_array[np.where(array_stored==0)]
 
+    joint_arr_cdist = np.array(array_stored)[joints_for_cdist]
+    new_body_dist = cdist(joint_arr_cdist, joint_arr_cdist)
     old_array=array_stored
     toc = time.time()
     #print("Time for player_localization: ", toc-tic)
+    return df, old_array, new_body_dist
+
+def overlap(A, B):
+    #print(A, B)
+    if (A[0] > B[1]) or (A[1] < B[0]):
+        #print(A[0], ">", B[1], "or", A[1], "<", B[0])
+        return 0
+    if (A[2] > B[3]) or (A[3] < B[2]):
+        #print(A[2], ">", B[3], "or", A[3], "<", B[2])
+        return 0
+    I = [max(A[0], B[0]), min(A[1], B[1]), max(A[2], B[2]), min(A[3], B[3])]
+    # color_box("/Users/ninawiedemann/Desktop/UNI/Praktikum/high_quality_testing/pitcher/#5 RHP Matt Blais (4).mp4", I, color = "green")
+
+    Aarea = abs((A[0]-A[1])*(A[2]-A[3]))
+    Barea = abs((B[0]-B[1])*(B[2]-B[3]))
+    Iarea = abs((I[0]-I[1])*(I[2]-I[3]))
+
+    #print(Aarea, Barea, Iarea)
+    return Iarea/(Aarea+Barea-Iarea)
+
+def player_localization(df,frame,player,old_array):
+    player2=player+'_player'
+    zerrow2=np.where(old_array[:,0]!=0)[0]
+    joints_for_bbox = np.intersect1d(zerrow2, important_joints)
+    old_arr_bbox = [np.min(old_array[joints_for_bbox, 0]), np.max(old_array[joints_for_bbox, 0]),
+                   np.min(old_array[joints_for_bbox, 1]), np.max(old_array[joints_for_bbox, 1])]
+    intersections = []
+    for i in range(np.asarray(df[player][frame]).shape[0]):
+        player_array = df[player][frame][i]
+
+        zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]!=0)[0]
+        zerrow_all =np.intersect1d(zerrow1,zerrow2) # assume unique argument for speedup?
+        zerrow = np.intersect1d(zerrow_all, important_joints)
+
+        if len(zerrow)<2:
+            intersections.append(0)
+            continue
+
+        joints_for_bbox = np.intersect1d(zerrow1, important_joints)
+        player_arr_bbox = [np.min(player_array[joints_for_bbox, 0]), np.max(player_array[joints_for_bbox, 0]),
+                        np.min(player_array[joints_for_bbox, 1]), np.max(player_array[joints_for_bbox, 1])]
+        intersections.append(overlap(player_arr_bbox, old_arr_bbox))
+
+    # if two in intersections are bigger than 0.5: set all to zero as well (because if two guys overlaping that much, it is better to set it as missing value than to take the guy with most)
+    if not np.any(np.array(intersections)>0.1):
+        print("missing frame", frame, "with intersections:", intersections) #, "with players", df[player][frame])
+        df[player2][frame]=[[0,0] for i in range(18)]
+    else:
+        if np.sum(np.array(intersections)>0.5)>1:
+            print("too many overlaping", frame, "with intersections:", intersections) #, "with players", df[player][frame])
+            df[player2][frame]=[[0,0] for i in range(18)]
+        else:
+            df[player2][frame]= df[player][frame][np.argmax(intersections)]
+
+    array_stored=np.asarray(df[player2][frame])
+    array_stored[np.where(array_stored==0)]=old_array[np.where(array_stored==0)]
+    old_array=array_stored
     return df, old_array
-
-
 
 def continuity(df_res, player, num_joints=18):
     mat = np.array(df_res[player+'_player'].values)
     mat = np.stack(mat) # seems necessary because DataFrame does not return a pure np matrix
-
     for limb in range(num_joints):
         for xy in [0, 1]: # x and y coord dimension
             # TODO: Examine any performance degradation from calling ':' on primary dimension.
@@ -452,12 +509,14 @@ def continuity(df_res, player, num_joints=18):
 
             if not any(not_zer): # everything is zero, so can't interpolate
                 mat[:, limb, xy] = 0
+                print("whole joint is zero")
             else:
                 mat[:, limb, xy] = np.round(
                     np.interp(indices, indices[not_zer], values[not_zer]),
                     1)
-    for frame_ii in range(mat.shape[2]):
+    for frame_ii in range(mat.shape[0]):
         df_res[player+'_player'][frame_ii] = mat[frame_ii, :, :].tolist()
+
     return df_res
 
 
@@ -465,70 +524,82 @@ def continuity(df_res, player, num_joints=18):
 def mix_right_left(df,index,player):
     tic = time.time()
     player=player+'_player'
-    for i in range(len(df)-1):
-        if i==0: continue
-        else:
-            if abs(np.asarray(df[player][i])[index[1]][1]-np.asarray(df[player][i-1])[index[1]][1])+abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[1]][0])>abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[1]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[1]][1]) and abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1])+abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[0]][0])>abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[0]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1]):
+    for i in range(1, len(df)-1):
+        if abs(np.asarray(df[player][i])[index[1]][1]-np.asarray(df[player][i-1])[index[1]][1])+abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[1]][0])>abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[1]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[1]][1]) and abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1])+abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[0]][0])>abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[0]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1]):
 
-                left=df[player][i][index[1]]
-                right=df[player][i][index[0]]
-                #print i,player,'left is',left,'right is',right
-                df[player][i][index[1]]=right
-                df[player][i][index[0]]=left
+            left=df[player][i][index[1]]
+            right=df[player][i][index[0]]
+            #print i,player,'left is',left,'right is',right
+            df[player][i][index[1]]=right
+            df[player][i][index[0]]=left
 
     toc = time.time()
     #print("Time for mix right left", toc-tic)
     return df
 
-def df_coordinates(df,centerd):
+def df_coordinates(df,centerd, player_list, interpolate = True):
     df.sort_values(by='Frame',ascending=1,inplace=True)
     df.reset_index(inplace=True,drop=True)
-    df['Batter_player']=df['Batter'].copy()
-    df['Pitcher_player']=df['Pitcher'].copy()
-    for player in ['Batter','Pitcher']:
+    for player in player_list:
+        df[player+'_player']=df[player].copy()
         player2=player+'_player'
         center=centerd[player]
         old_norm=10000
         indices=[6,9]
-        print df[player][0]
-        for person in range(len(df[player][0])):
-            hips=np.asarray(df[player][0][person])[indices]
+        #print df[player][0][0]
+        i=0
+        found = False
+        while not found:
+            #len(df[player][i])==0:
 
-            hips=hips[np.sum(hips,axis=1)<>0]
-            mean_hips=np.mean(hips,axis=0)
+            for person in range(len(df[player][i])):
+                hips=np.asarray(df[player][i][person])[indices]
+
+                hips=hips[np.sum(hips,axis=1)!=0]
+                mean_hips=np.mean(hips,axis=0)
 
 
-            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
-            if norm<old_norm:
+                norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
+                if norm<old_norm:
+                    found = True
+                    loc=person
+                    old_norm=norm
+            if found:
+                break
+            df[player2][i]=[[0,0] for j in range(18)]
+            print("no person detected in frame", i)
+            i+=1
 
-                loc=person
-                old_norm=norm
+        df[player2][i]=df[player][i][loc]
+        globals()['old_array_%s'%player]=np.asarray(df[player][i][loc])
+        # joint_arr_cdist = np.array(df[player][0][loc])[joints_for_cdist]
+        # print("joints_arr_cdist", np.array(joint_arr_cdist).shape)
+        # globals()['cdist_%s'%player] = cdist(joint_arr_cdist, joint_arr_cdist)
 
-        df[player2][0]=df[player][0][loc]
-        globals()['old_array_%s'%player]=np.asarray(df[player][0][loc])
+        for frame in df['Frame'][(i+1):len(df)]:
+            df,globals()['old_array_%s'%player] = player_localization(df,frame,player,globals()['old_array_%s'%player])
 
-    for frame in df['Frame'][1:len(df)]:
-        for player in ['Batter','Pitcher']:
-            df,globals()['old_array_%s'%player]=player_localization(df,frame,player,globals()['old_array_%s'%player])
-
-    for player in player_list:
         for index in index_list:
             df=mix_right_left(df,index,player)
-    df=continuity(df,'Pitcher')
-    df=continuity(df,'Batter')
 
-    return df[['Frame','Pitcher_player','Batter_player']]
+        if interpolate:
+            df=continuity(df,player)
+
+    return df #[['Frame','Pitcher_player','Batter_player']]
 
 
-def to_json(play, events_dic, save_path, position = None, pitchtype = None):
+def to_json(play, events_dic, save_path, position = None, pitchtype = None, frames_per_sec = 30):
     coordinates = ["x", "y"]
-    joints_list = ["right_shoulder", "left_shoulder", "right_elbow", "right_wrist","left_elbow", "left_wrist",
-            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle", "neck ",
-            "right_eye", "right_ear","left_eye", "left_ear"]
-    tic = time.time()
+    joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
+            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
+            "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
     frames, joints, xy = play.shape
+    start_time = int(round(events_dic["start_time"] * 1000))
     dic = {}
-    dic["timestamp"] = int(round(time.time() * 1000))
+    dic["time_start"] = start_time
+    dic["bbox_pitcher"] = events_dic["bbox_pitcher"]
+    dic["bbox_batter"] = events_dic["bbox_batter"]
+    dic["video_directory"] = events_dic["video_directory"]
     dic["Pitching position"]= position
     dic["Pitch Type"] = pitchtype
     dic["device"] = "?"
@@ -536,7 +607,8 @@ def to_json(play, events_dic, save_path, position = None, pitchtype = None):
     dic["frames"] = []
     for i in range(frames):
         dic_joints = {}
-        for j in range(12): #joints):
+        dic_joints["timestamp"] = int(round(start_time + (1000*i)/float(frames_per_sec)))
+        for j in range(18): #joints):
             dic_xy = {}
             for k in range(xy):
                 dic_xy[coordinates[k]] = play[i,j,k]
@@ -550,71 +622,3 @@ def to_json(play, events_dic, save_path, position = None, pitchtype = None):
 
     with open(save_path+".json", 'w') as outfile:
         json.dump(dic, outfile, indent=10)
-    print("Time for json ", time.time()-tic)
-
-
-def normalize(data):
-    """
-    normalizes across frames - axix to zero mean and standard deviation
-    """
-    M,N, nr_joints,_ = data.shape
-    means = np.mean(data, axis = 1)
-    std = np.std(data, axis = 1)
-    res = np.asarray([(data[:,i]-means)/(std+0.000001) for i in range(len(data[0]))])
-    data_new = np.swapaxes(res, 0,1)
-    return data_new
-
-
-def df_coordinates_weird(df,centerd):
-    tic('DF_COORDINATES')
-
-    tic('LOCALIZATION_PREPROC')
-    df.sort_values(by='Frame',ascending=1,inplace=True)
-    df.reset_index(inplace=True,drop=True)
-    df['Batter_player']=df['Batter'].copy()
-    df['Pitcher_player']=df['Pitcher'].copy()
-
-    for player in ['Batter','Pitcher']:
-        player2=player+'_player'
-        center=centerd[player]
-        old_norm=10000
-        indices=[6,9]
-        #print df[player][0]
-        for person in range(len(df[player][0])):
-            hips=np.asarray(df[player][0][person])[indices]
-
-            hips=hips[np.sum(hips,axis=1)!=0]
-            mean_hips=np.mean(hips,axis=0)
-
-
-            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
-            if norm<old_norm:
-                loc=person
-                old_norm=norm
-
-        df[player2][0]=df[player][0][loc]
-        globals()['old_array_%s'%player]=np.asarray(df[player][0][loc])
-    toc('LOCALIZATION_PREPROC')
-
-    tic('LOCALIZATION')
-    for frame in df['Frame'][1:len(df)]:
-        for player in ['Batter','Pitcher']:
-            df,globals()['old_array_%s'%player]=player_localization(df,frame,player,globals()['old_array_%s'%player])
-    toc('LOCALIZATION')
-
-    tic('MIX_LR')
-    for player in player_list:
-        for index in index_list:
-            df=mix_right_left(df,index,player)
-    toc('MIX_LR')
-
-    tic('CONT_PITCHER')
-    df=continuity(df,'Pitcher')
-    toc('CONT_PITCHER')
-    tic('CONT_BATTER')
-    df=continuity(df,'Batter')
-    toc('CONT_BATTER')
-
-    toc('DF_COORDINATES')
-    time_summary()
-    return df[['Frame','Pitcher_player','Batter_player']]

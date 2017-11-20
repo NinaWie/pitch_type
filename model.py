@@ -32,16 +32,16 @@ class Model:
     second_conv_kernel, first_hidden_dense, second_hidden_dense):
         shape = x.get_shape().as_list()
         net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
-        net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, padding = "SAME", name="conv1")
-        print(net)
+        net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, padding = "SAME", reuse = None)
+        #print(net)
         # tf.summary.histogram("conv_1_layer", net)
-        net = tf.layers.conv1d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, padding = "SAME", name="conv2")
-        print(net)
-        net = tf.layers.conv1d(net, filters=1, kernel_size=second_conv_kernel, activation = None, padding = "SAME", name="conv3")
-        print(net)
+        net = tf.layers.conv1d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, padding = "SAME",reuse = None)
+        #print(net)
+        net = tf.layers.conv1d(net, filters=1, kernel_size=second_conv_kernel, activation = None, padding = "SAME", reuse = None)
+        #print(net)
         shapes = net.get_shape().as_list()
         print(shapes)
-        logits = tf.reshape(net, (-1, shapes[1]*shapes[2]))
+        logits = net #tf.reshape(net, (-1, shapes[1]*shapes[2]))
         out = tf.nn.softmax(logits)
         return out, logits
 
@@ -75,6 +75,29 @@ class Model:
             net = tflearn.lstm(net, n_hidden)
             out = tflearn.fully_connected(net, num_classes, activation=act)
             trainer = tflearn.regression(out, optimizer='adam', loss=loss, name='output1')
+            return out, trainer
+        except ImportError:
+            print("Tflearn not installed")
+
+    def bidirectional_lstm(self, frames, input_size, num_classes, nr_layers, n_hidden, dropout_rate, loss = "categorical_crossentropy", act = "softmax"):
+        try:
+            import tflearn
+            from tflearn.data_utils import to_categorical, pad_sequences
+            from tflearn.datasets import imdb
+            from tflearn.layers.core import input_data, dropout, fully_connected
+            from tflearn.layers.embedding_ops import embedding
+            from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
+            from tflearn.layers.estimator import regression
+            """Create a one-layer LSTM"""
+            net = input_data(shape=[None, frames, input_size])
+            #net = embedding(net, input_dim=frames*input_size, output_dim=128)
+            for i in range(nr_layers-1):
+                net = tflearn.bidirectional_rnn(net, BasicLSTMCell(n_hidden), BasicLSTMCell(n_hidden), return_seq=True)
+                net = dropout(net, 0.5)
+            net = bidirectional_rnn(net, BasicLSTMCell(n_hidden), BasicLSTMCell(n_hidden))
+            net = dropout(net, 0.5)
+            out = fully_connected(net, num_classes, activation=act)
+            trainer = regression(out, optimizer='adam', loss=loss)
             return out, trainer
         except ImportError:
             print("Tflearn not installed")

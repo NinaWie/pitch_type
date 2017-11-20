@@ -2,14 +2,13 @@ import numpy as np
 import json
 import time
 
-bsp = np.load("example.npy")
 
-coordinates = ["x", "y"]
-joints_list = ["right_shoulder", "left_shoulder", "right_elbow", "right_wrist","left_elbow", "left_wrist",
-        "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle", "neck ",
-        "right_eye", "right_ear","left_eye", "left_ear"]
 
 def to_json(play, events_dic):
+    coordinates = ["x", "y"]
+    joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
+            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
+            "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
     tic = time.time()
     frames, joints, xy = bsp.shape
     dic = {}
@@ -39,6 +38,10 @@ def to_json(play, events_dic):
 to_json(bsp, {"release_frame": 4, "fist_move": 2})
 
 def from_json(file):
+    coordinates = ["x", "y"]
+    joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
+            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
+            "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
     tic = time.time()
     with open(file, 'r') as inf:
         out = json.load(inf)
