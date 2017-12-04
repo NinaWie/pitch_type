@@ -59,14 +59,16 @@ for day in listdir(directory):
         if  not string_f.endswith("dat"):
             files.append(string_f)
 
-    already_done = listdir(out_dir_first)
+    #already_done = listdir(out_dir_first)
     #print("number files:", len(files))
     #print(already_done)
     for fi in files:
-        if (fi[:-4]+"_batter.json") in already_done:
+
+        f = subdirectory+fi
+        game_id = f.split("/")[-1][:-4]
+        if isfile(out_dir+game_id+"_batter.json"): # in already_done:
             print("already_done", fi)
             continue
-        f = subdirectory+fi
         print("---------------------------------------------")
         print("file", fi, "directory", f)
         video_capture = cv2.VideoCapture(f)
@@ -116,8 +118,11 @@ for day in listdir(directory):
     	# if len(df["Batter"][0])==0 or len(df["Pitcher"][0])==0:
     	#     print("first frame not detected", f)
     	#     continue
-        df_res= df_coordinates(df,center_dic, ["Pitcher", "Batter"], interpolate = True)
-
+        try:
+            df_res= df_coordinates(df,center_dic, ["Pitcher", "Batter"], interpolate = True)
+	    except (ValueError,KeyError):
+    	    print("batter not detected in any frame")
+    	    continue
         pitcher_array = np.zeros((p, 18,2))
         for i in range(p):
             try:

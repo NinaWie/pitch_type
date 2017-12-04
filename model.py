@@ -29,15 +29,18 @@ class Model:
         return out, logits
 
     def conv1stmove(self, x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
-    second_conv_kernel, first_hidden_dense, second_hidden_dense):
+    second_conv_kernel, first_hidden_dense, second_hidden_dense, out_filters = 1):
         shape = x.get_shape().as_list()
         net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
         net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, padding = "SAME", reuse = None)
+        net = tf.layers.batch_normalization(net, training = training)
         #print(net)
         # tf.summary.histogram("conv_1_layer", net)
         net = tf.layers.conv1d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, padding = "SAME",reuse = None)
+        net = tf.layers.batch_normalization(net, training = training)
         #print(net)
-        net = tf.layers.conv1d(net, filters=1, kernel_size=second_conv_kernel, activation = None, padding = "SAME", reuse = None)
+        net = tf.layers.conv1d(net, filters=out_filters, kernel_size=second_conv_kernel, activation = None, padding = "SAME", reuse = None)
+        net = tf.layers.batch_normalization(net, training = training)
         #print(net)
         shapes = net.get_shape().as_list()
         print(shapes)
@@ -123,21 +126,37 @@ class Model:
         out = tf.nn.softmax(logits)
         return out, logits
 
-    def conv1dnet(self, x, nr_classes, training, rate_dropout, act):   # conv1d(256,5,2)-conv1d(256,3)-conv1d(128,3)-conv1d(1,1)-dense(1024)-dense(128),dense(nr_classes)
+    def conv1d_big(self, x, nr_classes, training, rate_dropout, act):   # conv1d(256,5,2)-conv1d(256,3)-conv1d(128,3)-conv1d(1,1)-dense(1024)-dense(128),dense(nr_classes)
         shape = x.get_shape().as_list()
         x_ = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
         #shape_y = y.get_shape().as_list()
+        net = tf.layers.conv1d(x_, filters=56, kernel_size=5, strides=2, activation=act, name="conv1")
+        net = tf.layers.max_pooling1d(net, 2, 2, padding="same", name = "maxpool1")
+        net = tf.layers.batch_normalization(net, training=training)
+        print(net)
+        #tf.summary.histogram("conv_1_layer", net)
+        #net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        net = tf.layers.conv1d(net, filters=128, kernel_size=5, strides=2, activation=act , name="conv2")
+        # net = tf.layers.max_pooling1d(net, 2, 1, padding="same", name = "maxpool2")
+        net = tf.layers.batch_normalization(net, training=training)
+        print(net)
+        #tf.summary.histogram("conv_2_layer", net)
+        net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        net = tf.layers.conv1d(net, filters=128, kernel_size=5, strides=1, activation=act, name="conv3")
+        net = tf.layers.max_pooling1d(net, 2, 1, padding="same", name = "maxpool3")
+        net = tf.layers.batch_normalization(net, training=training)
+        print(net)
+        #tf.summary.histogram("conv_3_layer", net)
+        #net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        net = tf.layers.conv1d(net, filters=256, kernel_size=3, activation = act, name="conv4")
+        #net = tf.layers.max_pooling1d(net, 2, 1, padding="same", name = "maxpool4")
+        net = tf.layers.batch_normalization(net)
+        print(net)
+        net = tf.layers.conv1d(net, filters=256, kernel_size=3, activation = act, name="conv5")
+        net = tf.layers.max_pooling1d(net, 2, 1, padding="same", name = "maxpool5")
+        net = tf.layers.batch_normalization(net, training=training)
+        print(net)
 
-        net = tf.layers.conv1d(x_, filters=256, kernel_size=5, strides=2, activation=act, name="conv1")
-        tf.summary.histogram("conv_1_layer", net)
-        net = tf.layers.dropout(net, rate=rate_dropout, training=training)
-        net = tf.layers.conv1d(net, filters=256, kernel_size=3, strides=1, activation=act , name="conv2")
-        tf.summary.histogram("conv_2_layer", net)
-        net = tf.layers.dropout(net, rate=rate_dropout, training=training)
-        net = tf.layers.conv1d(net, filters=128, kernel_size=3, strides=1, activation=act, name="conv3")
-        tf.summary.histogram("conv_3_layer", net)
-        net = tf.layers.dropout(net, rate=rate_dropout, training=training)
-        net = tf.layers.conv1d(net, filters=1, kernel_size=1, activation = act, name="conv4")
         shapes = net.get_shape().as_list()
         ff = tf.reshape(net, (-1, shapes[1]*shapes[2]))
         ff = tf.layers.dense(ff, 1024, activation = act, name="ff1")
@@ -233,9 +252,9 @@ class Model:
 
     def RNN(self, x_in, nr_classes, n_hidden, nr_layers):
         shape = x_in.get_shape().as_list()
-        x = tf.reshape(x_in, (-1, shape[1], shape[2]*shape[3]))
+        # x = tf.reshape(x_in, (-1, shape[1], shape[2]*shape[3]))
 
-        x = tf.unstack(x, shape[1], 1)
+        x = tf.unstack(x_in, shape[1], 1)
 
         def lstm_cell():
               return rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)

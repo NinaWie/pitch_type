@@ -39,7 +39,7 @@ def test(data, restore_file):
 
 class Runner(threading.Thread):
 
-    def __init__(self, data, labels_string, SAVE = None, BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
+    def __init__(self, data, labels_string, SAVE = None, files = [], BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
             act = tf.nn.relu, rate_dropout = 0,
             learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
             first_conv_filters=128, first_conv_kernel=9, second_conv_filter=128,
@@ -47,6 +47,7 @@ class Runner(threading.Thread):
             network = "adjustable conv1d"):
         threading.Thread.__init__(self)
         self.data = data
+        self.files = files
         self.labels_string = np.array(labels_string)
         self.unique  = np.unique(labels_string).tolist()
         self.SAVE = SAVE
@@ -163,8 +164,8 @@ class Runner(threading.Thread):
         training = tf.placeholder_with_default(False, None, name = "training")
 
 
-        if self.network == "conv1d (256, 5) - conv1d(128, 3) - dense(nr_classes) - softmax":
-            out, logits = model.best_in_cluster_concat53(x, nr_classes, training, self.rate_dropout, self.act)
+        if self.network == "conv1d_big":
+            out, logits = model.conv1d_big(x, nr_classes, training, self.rate_dropout, self.act)
         elif self.network == "adjustable conv1d":
             out, logits = model.conv1d_with_parameters(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
@@ -211,6 +212,11 @@ class Runner(threading.Thread):
             combined_x = tf.reshape(tf.concat([out_cf, out_sv], 2), (-1, N, 2,1))
             out, logits = model.conv1d_with_parameters(combined_x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
                                                         self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+        elif self.network == "conv+rnn":
+            first_out, _ =  model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=20)
+            print(first_out)
+            out, logits = model.RNN(first_out, nr_classes, self.n_hidden, self.nr_layers)
         else:
             print("ERROR, WRONG", self.network, "INPUT")
 
@@ -328,10 +334,16 @@ class Runner(threading.Thread):
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 
+        if self.files is not []:
+            assert len(self.files)==len(self.labels_string)
+            assert len(test_inds)==len(labels_string_test)
+            for i in range(len(pitches_test)):
+                if pitches_test[i]!=labels_string_test[i]:
+                    print(files[test_inds[i]], "out", pitches_test[i], "true", labels_string_test[i])
         pitches = np.append(pitches_test, pitches_train, axis = 0)
         labs = np.append(labels_string_test, labels_string_train, axis = 0)
-        print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
-        return pitches_test, pitches_train
+        #print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
+        return test_ind, pitches_test, labels_string_test[i]
 
 #runner = Runner()
 #pitches, accuracies = runner.runscript(self.data_raw[20:30], labels[20:30], np.self.unique(labels).tolist(), self.RESTORE="./model")

@@ -112,12 +112,12 @@ print(data.shape, len(labels_string), np.unique(labels_string))
 
 
 
-runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
+runner = Runner(data, labels_string, SAVE = save_path, BATCH_SZ=40, EPOCHS = 3, batch_nr_in_epoch = 100,
         act = tf.nn.relu, rate_dropout = 0,
         learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
         first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
         second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-        network = "sv+cf")
+        network = "adjustable conv1d")
 
 runner.start()
 

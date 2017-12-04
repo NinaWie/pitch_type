@@ -270,3 +270,73 @@ class Tools:
         print(new_data.shape)
         new = new_data.reshape(M,frames, nr_components, 1)
         return new
+
+    @staticmethod
+    def shift_data(data, labels, , shift_labels= True, max_shift=30):
+        new_data=[]
+        for i in range(len(data)):
+            shift = np.random.randint(-max_shift, max_shift)
+            new = np.roll(data[i], shift, axis=0)
+            if shift_labels:
+                labels[i] = labels[i]+shift-max_shift
+            new_data.append(new[max_shift:len(new)-max_shift])
+        return np.array(new_data), labels
+
+    @staticmethod
+    def flip_x_data(data):
+        for i in range(len(data)):
+            mean = np.mean(data[i, :, :, 0])
+            flipped = (data[i, :,:,0]-mean)*(-1)
+            flipped+=mean
+            data[i,:,:,0] = flipped
+        return data
+
+    @staticmethod
+    def squish_data(data, factor, required_length=100):
+        """
+        takes data of shape nr_examples, nr_frame, nr_joints, nr_coords and returns the same sequence with every factor frame deleted
+        bsp: takes data of length 160 and returns length 100 with every 3rd frame deleted and then some more deleted before and in the end
+        """
+        nr_ex, l, j, co = data.shape
+        del_inds = np.arange(0, l, factor)
+        new = np.delete(data, del_inds, axis = 1)
+        if len(new[0])>l:
+            cut = (len(new[0])-l)//2
+            if len(new[0,cut:-cut])!=l:
+                return new[:, cut-1:-cut]
+            else:
+                return new[:,cut:-cut]
+        else:
+            i = 0
+            while len(new[0])<l:
+                if i==0:
+                    new = np.append(np.reshape(new[:,i], (nr_ex, 1, j, co)), new, axis=1)
+                    i=-1
+                elif i==-1:
+                    new = np.append(new, np.reshape(new[:,i], (nr_ex, 1, j, co)), axis=1)
+                    i=0
+            return new
+
+    @staticmethod
+    def stretch_data(data, factor):
+        nr_ex, l, j, co = data.shape
+        indices = []
+        c = 0
+        while len(indices)<l:
+            if c%factor!=0:
+                indices.append(c)
+            c+=1
+        inds_new = np.arange(indices[-1]+1)
+
+        # print(indices, inds_new)
+        new = np.zeros((nr_ex, len(inds_new), j, co))
+        for ex in range(1): #nr_ex):
+            for limb in range(j):
+                for xy in [0, 1]: # x and y coord dimension
+                    values = data[ex, :, limb, xy]
+                    new[ex, :, limb, xy] = np.round(np.interp(inds_new, indices, values), 1)
+        cut = (len(inds_new)-len(indices))//2
+        if len(new[0,cut:-cut])!=l:
+            return new[:, cut-1:-cut]
+        else:
+            return new[:,cut:-cut]

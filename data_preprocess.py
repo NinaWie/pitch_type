@@ -39,31 +39,59 @@ class JsonProcessor:
         # Get release frame data for new videos (saved in dictionary instead of single dat files)
         with open("Pose_Estimation/release_frame_new_cf.json", "r") as infile:
             release_frame_json = json.load(infile)
-
+        with open("Pose_Estimation/release_frame_boston.json", "r") as infile:
+            release_frame_boston = json.load(infile)
         for play in play_list:
             try:
                 label_event = release_frame_json[play]
             except KeyError:
-                # print("play not in release frame dic")
                 try:
-                    game_index = game.index(play)
-                    if event[game_index]<cut_off_min or event[game_index]>cut_off_max or np.isnan(event[game_index]):
-                        print("wrong label")
-                        label_event=0
-                    else:
-                        label_event = event[game_index]
-                except ValueError:
-                    print("play neither in csv not in json dic", play)
-                    label_event = 0
+                    label_event = release_frame_boston[play]
+                    print("boston file funktioniert")
+                except KeyError:
+                # print("play not in release frame dic")
+                    try:
+                        game_index = game.index(play)
+                        if event[game_index]<cut_off_min or event[game_index]>cut_off_max or np.isnan(event[game_index]):
+                            print("wrong label")
+                            label_event=0
+                        else:
+                            label_event = event[game_index]
+                    except ValueError:
+                        print("play neither in csv not in json dic", play)
+                        label_event = 0
             label.append(label_event)
         return np.array(label)
 
-    def get_label_pitchtype(self, play_list, csvs, label_name):
+    def lab_from_csv(self, out, label_name):
+        if pd.isnull(out):
+            return "Unknown"
+        if label_name=="Pitch Type" or label_name=="Pitching Position (P)":
+            if out=="Unknown Pitch Type":
+                return "Unknown"
+            else:
+                return out
+        elif label_name=="Play Outcome":
+            if "Foul" in out or "Swinging strike" in out:
+                return "hit"
+            elif "Ball/Pitcher" in out or "Called strike" in out:
+                return "nothing"
+            elif "Hit into play" in out:
+                return "run"
+            else:
+                print("invalid label: ", out)
+                return "Unknown"
+        else: return "Unknown"
+
+    def get_label(self, play_list, csvs, label_name):
         game=[]
         event=[]
         for file_ in csvs:
-            df = pd.read_csv(file_)
-            df = df[df["Player"]=="Pitcher"]
+            try:
+                df = pd.read_csv(file_)
+                # df = df[df["Player"]=="Pitcher"]
+            except pd.io.common.CParserError:
+                df = pd.read_csv(file_, delimiter=";")
             game.append(df["play_id"].values.tolist())
             event.append(df[label_name].values.tolist())
         label = []
@@ -74,13 +102,14 @@ class JsonProcessor:
                 #print(play)
                 try:
                     game_index = g.index(play)
-                    label.append(event[i][game_index])
+                    lab = event[i][game_index]
+                    label.append(self.lab_from_csv(lab, label_name))
                     #print(label[-1])
                     break
                 except ValueError:
                     if i== (len(game)-1):
                         print("label not in any csv")
-                        label.append("Unknown Pitch Type")
+                        label.append("Unknown")
                     else: continue
         return label
 
@@ -102,12 +131,31 @@ class JsonProcessor:
                 play_list.append(f[7:-cut])
         return np.array(data), play_list
 
+    def get_test_data(self, inp_dir, test_data_path,  sequ_len, start, shift = 60, labels=None):
+        #sequ_len=150
+        data = []
+
+        filenames = []
+        for files in listdir(inp_dir):
+            name = files.split(".")[0]
+            if name+".mp4" in listdir(test_data_path): # and ("Ryan" in name or "Chavez" in name):
+                array = self.from_json(inp_dir+files)
+                if labels is None:
+                    if len(array)>start+sequ_len:
+                        data.append(array[start:start+sequ_len])
+                        filenames.append(name)
+                else:
+                    real = labels[name]
+                    if len(array)>real+sequ_len-shift and real>shift:
+                        data.append(array[real-shift:real+sequ_len-shift])
+                        filenames.append(name)
+        return np.array(data), filenames
 
     def get_data(self, inp_dir, sequ_len, player="pitcher"):
         data = []
-
+        play_list = []
         for view in range(len(inp_dir)):
-            play_list = []
+            files_list =[]
             for path in inp_dir[view]:
                 processed = listdir(path)
                 for files in processed:
@@ -117,18 +165,18 @@ class JsonProcessor:
                             play = files.split("_")[1] #files.split("_")[0]+ "_" +
                         else:
                             play = files.split("_")[0][7:]
-                        if play in play_list:
+                        if play in files_list:
                             continue
 
                         array = self.from_json(path+files)[:sequ_len, :12]
                         if len(array)<sequ_len:
                             print("too short", files)
                             continue
-
+                        files_list.append(play)
                         play_list.append(play)
                         data.append(array)
-
-        print(np.array(data).shape, len(play))
+                print("after path:", len(data))
+        print(np.array(data).shape, len(play_list))
         return np.array(data), play_list
 
 
