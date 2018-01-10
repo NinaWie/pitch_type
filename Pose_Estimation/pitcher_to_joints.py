@@ -64,7 +64,7 @@ for fi in listdir(inp_dir): #__name__ == "__main__":
     video_capture = cv2.VideoCapture(f)
     #x, y = centers[fi[:-4]]#np.array([abs(top_p+bottom_p)/2., abs(left_p+right_p)/2.])
     center_dic['Pitcher'] = centers[fi[:-4]] #np.array([y, x])
-    print(fi, "center: ", center_dic["Pitcher"])
+    #print(fi, "center: ", center_dic["Pitcher"])
 
     df = pd.DataFrame(columns=['Frame','Pitcher'])
     tic1 = time.time()

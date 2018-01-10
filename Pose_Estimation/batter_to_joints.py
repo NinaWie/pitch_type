@@ -50,19 +50,19 @@ for fi in listdir(inp_dir): #__name__ == "__main__": #changed
     print(f)
     video_capture = cv2.VideoCapture(f)
     #x, y = centers[fi[:-4]]#np.array([abs(top_p+bottom_p)/2., abs(left_p+right_p)/2.])
-    center_dic['Batter'] = centers[fi[:-4]] #np.array([y, x])
+    center_dic['Batter'] =centers["#3 Cole Loncar"]# centers[fi[:-4]] #np.array([y, x])
 
     print("center: ", center_dic["Batter"])
     df = pd.DataFrame(columns=['Frame', 'Batter'])
     tic1 = time.time()
     p=0
-    handle_one_res = []
+    #handle_one_res = []
     events_dic = {}
     events_dic["video_directory"]= inp_dir
     events_dic["bbox_batter"] = [0,0,0,0]
     events_dic["bbox_pitcher"] = [0,0,0,0]
     events_dic["start_time"]=time.time()
-    while p<5: #True:
+    while True:
 # Capture frame-by-frame
         ret, frame = video_capture.read()
         if frame is None:
@@ -77,7 +77,7 @@ for fi in listdir(inp_dir): #__name__ == "__main__": #changed
     print(events_dic)
     print("Time to read in video and handle one:", time.time()-tic1)
 
-    print(len(handle_one_res))
+    #print(len(handle_one_res))
     #game_id = f.split("/")[-1][:-4]
     #with open(out_dir+"handle_one/new_Functions.json", "w") as outfile:
 #	json.dump(list(handle_one_res), outfile)

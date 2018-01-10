@@ -272,7 +272,7 @@ class Tools:
         return new
 
     @staticmethod
-    def shift_data(data, labels, , shift_labels= True, max_shift=30):
+    def shift_data(data, labels, shift_labels= True, max_shift=30):
         new_data=[]
         for i in range(len(data)):
             shift = np.random.randint(-max_shift, max_shift)

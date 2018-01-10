@@ -8,6 +8,7 @@ def config_reader():
     param = config['param']
     model_id = param['modelID']
     model = config['models'][model_id]
+    print(model['boxsize'])
     model['boxsize'] = int(model['boxsize'])
     model['stride'] = int(model['stride'])
     model['padValue'] = int(model['padValue'])
@@ -17,6 +18,7 @@ def config_reader():
     param['use_gpu'] = int(param['use_gpu'])
     param['starting_range'] = float(param['starting_range'])
     param['ending_range'] = float(param['ending_range'])
+    print(param['scale_search'])
     param['scale_search'] = map(float, param['scale_search'])
     param['thre1'] = float(param['thre1'])
     param['thre2'] = float(param['thre2'])
@@ -26,7 +28,7 @@ def config_reader():
     param['crop_ratio'] = float(param['crop_ratio'])
     param['bbox_ratio'] = float(param['bbox_ratio'])
     param['GPUdeviceNumber'] = int(param['GPUdeviceNumber'])
-
+    print(model['stride'], model['padValue'])
     return param, model
 
 if __name__ == "__main__":

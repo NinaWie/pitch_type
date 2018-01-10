@@ -1,3 +1,237 @@
+def get_candidates(im_tm1, im_t, im_tp1, min_area):
+    delta_plus = cv2.absdiff(im_t, im_tm1)
+    delta_0 = cv2.absdiff(im_tp1, im_tm1)
+    delta_minus = cv2.absdiff(im_t,im_tp1)
+    sp = cv2.meanStdDev(delta_plus)
+    sm = cv2.meanStdDev(delta_minus)
+    s0 = cv2.meanStdDev(delta_0)
+    # print("E(d+):", sp, "\nE(d-):", sm, "\nE(d0):", s0)
+
+    th = [
+        sp[0][0, 0] + 3 * math.sqrt(sp[1][0, 0]),
+        sm[0][0, 0] + 3 * math.sqrt(sm[1][0, 0]),
+        s0[0][0, 0] + 3 * math.sqrt(s0[1][0, 0]),
+    ]
+
+    # OPENCV THRESHOLD
+
+    ret, dbp = cv2.threshold(delta_plus, th[0], 255, cv2.THRESH_BINARY)
+    ret, dbm = cv2.threshold(delta_minus, th[1], 255, cv2.THRESH_BINARY)
+    ret, db0 = cv2.threshold(delta_0, th[2], 255, cv2.THRESH_BINARY)
+
+    detect = cv2.bitwise_not(cv2.bitwise_and(cv2.bitwise_and(dbp, dbm),
+                    cv2.bitwise_not(db0)))
+
+    # CONNECTED BOX
+    # The original `detect` image was suitable for display, but it is "inverted" and not suitable
+    # for component detection; we need to invert it first.
+    start = time.time()
+    nd = cv2.bitwise_not(detect)
+    # only stats is used, not num, labels, centroids
+    num, labels, stats, centroids = cv2.connectedComponentsWithStats(nd, ltype=cv2.CV_16U)
+    # We set an arbitrary threshold to screen out smaller "components"
+    # which may result simply from noise, or moving leaves, and other
+    # elements not of interest.
+
+
+    d = detect.copy()
+    candidates = list()
+    for stat in stats[1:]:
+        area = stat[cv2.CC_STAT_AREA]
+        if area < min_area:
+            continue # Skip small objects (noise)
+
+        lt = (stat[cv2.CC_STAT_LEFT], stat[cv2.CC_STAT_TOP])
+        rb = (lt[0] + stat[cv2.CC_STAT_WIDTH], lt[1] + stat[cv2.CC_STAT_HEIGHT])
+        bottomLeftCornerOfText = (lt[0], lt[1] - 15)
+
+        candidates.append((lt, rb, area))
+    return candidates
+
+def first_movement(cand_list, joints, ankle_move, fr):
+    knees= joints[[7, 10],:]
+    ankles = joints[[8,11],:]
+    #print(knees, ankles, knees-ankles, np.mean(knees-ankles, axis=0))
+    dist_ankle = np.linalg.norm(np.mean(knees-ankles, axis=0)) #//2
+    #print("radius", dist_ankle)
+    for k, cand in enumerate(cand_list):
+              #np.linalg.norm(cand.center - knees[0]),
+            #np.linalg.norm(cand.center - knees[1]), np.linalg.norm(cand.center - ankles[1]),
+                #                                     np.linalg.norm(cand.center - ankles[0]))
+        #print(np.linalg.norm(cand.center - knees[0])<radius, np.linalg.norm(cand.center - knees[1])<radius)
+        norms = np.array([np.linalg.norm(cand.center - knees[0]), np.linalg.norm(cand.center - knees[1]), np.linalg.norm(cand.center - ankles[0]), np.linalg.norm(cand.center - ankles[1])])
+        #print("center", cand.center, "knees", knees[0],knees[1], "ankles", ankles, "norms", norms)
+        if np.any(norms<dist_ankle):
+            print("smaller radius", cand.center)
+            ankle_move.append(fr) #cand.center)
+            break
+    return ankle_move
+        #if k==len(candidates_per_frame[-1])-1:
+         #   ankle_move=[]
+    #print(t, ankle_move)
+
+# PARAMETERS
+def detect_ball(folder, joints_array=None, template = "%03d.jpg", min_area = 400, plotting=True, min_length=5, every_x_frame=5):
+    # length = len(os.listdir(folder))
+    # images = [cv2.imread(folder+template %idx, cv2.IMREAD_GRAYSCALE) for idx in range(length)] #IMG_TEMPLATE.format(idx), )
+
+    cap = cv2.VideoCapture(folder)
+    images=[]
+    start = time.time()
+
+    candidates_per_frame = []
+    location = []
+    frame_indizes = []
+    ankle_move=[]
+    balls = []
+    t=0
+    temp=0
+    frame_before_close_wrist = False
+    while True: #t<150:
+        ret, frame = cap.read()
+
+        if frame is None:
+            break
+        if temp%every_x_frame !=0:
+            temp+=1
+            continue
+        temp+=1
+        candidates_per_frame.append([])
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # for t in range(1, length-1):
+        if t<10:
+            images.append(frame)
+            t+=1
+            continue
+
+        im_tm1 = images[-2]
+        im_t = images[-1]
+        im_tp1 = frame
+
+        candidates = get_candidates(im_tm1, im_t, im_tp1, min_area)
+        #plt.figure(figsize=(10, 10), edgecolor='k')
+
+
+        # # RELEASE FRAME CLOSE TO WRIST
+        #if len(candidates)>0:
+         #   wrist_position=joints_array[t-1, [1, 2, 4, 5],:] # ellbows and wrists
+            #box = np.sqrt(min_area)
+            #patch_right = [wrist_position[0,0]-box,wrist_position[0,0]+box, wrist_position[0,1]-box, wrist_position[0,1+box]
+        #close_to_wrist=False
+        for i, candidate in enumerate(candidates):
+            # The first two elements of each `candidate` tuple are
+            # the opposing corners of the bounding box.
+            x1, y1 = candidate[0]
+            x2, y2 = candidate[1]
+            center = [(x1+x2)/2, (y1+y2)/2]
+            no = Node(x1, y1, x2, y2)
+            candidates_per_frame[-1].append(no)
+            if t>0 and candidates_per_frame[-2]!=[]:
+                for nodes in candidates_per_frame[-2]:
+                    nodes.add_child(no)
+                    # print("previous detection", nodes.bbox, "gets child", no.bbox)
+
+            ### HERE INSERT CLOSE TO WRIST
+            ### HERE INSERT SHORTEST PATH CODE
+
+            #save location of candidate and frame
+            location.append(center)
+            frame_indizes.append(t-1)
+
+        ### FIRST MOVEMENT:
+        if candidates_per_frame[-1]!=[]:
+            ankle_move = first_movement(candidates_per_frame[-1], joints_array[temp-every_x_frame], ankle_move, t)
+        if len(ankle_move)>min_length-1 and t-ankle_move[-min_length]<10: #len(ankle_move)==3:
+            print("first movement frame: ", (ankle_move[-min_length])*every_x_frame)
+            #break
+        #else:
+         #   ankle_move=[]
+
+        ### BALL DETECTION:
+        if t>1 and candidates_per_frame[-1]!=[]:
+            area_diff=[]
+            nodes = []
+            for cand in candidates_per_frame[-1]:
+                for c in cand.children:
+                    area_diff.append(abs(cand.area- c.area))
+                    nodes.append(c)
+            # print(t, area_diff)
+            if area_diff!=[] and np.min(area_diff)<min_area:
+                if len(balls)>1 and len(np.where(np.array(area_diff)<min_area)[0])>1:
+                    d = []
+                    for j, n in enumerate(nodes):
+                        if area_diff[j]<min_area:
+                            p1 =  np.array([(balls[0][0]+balls[0][2])/2, (balls[0][1]+balls[0][3])/2])
+                            p2 =  np.array([(balls[1][0]+balls[1][2])/2, (balls[1][1]+balls[1][3])/2])
+                            p3 =  np.array([(n.bbox[0]+n.bbox[2])/2, (n.bbox[1]+n.bbox[3])/2])
+                            d.append(np.linalg.norm(np.cross(p2-p1, p1-p3))/np.linalg.norm(p2-p1))
+                        else: d.append(np.inf)
+                    balls.append(nodes[np.argmin(d)].bbox)
+                else:
+                    balls.append(nodes[np.argmin(area_diff)].bbox) # ändern statt d area_diff
+                # print(balls)
+            else:
+                balls = []
+        else:
+            balls = []
+        if len(balls)==5:
+            print("release frame", t-5)
+            break
+        ###
+
+        if plotting and len(ankle_move)>0: #len(candidates)>0: #len(balls)>0: # #
+            #print("DETECTED", t-1, whiteness_values[-1], candidate_values[-1])
+            plt.figure(figsize=(10, 10), edgecolor='r')
+            # print(candidates[fom])
+            img = np.tile(np.expand_dims(im_t.copy(), axis = 2), (1,1,3))
+            #print(img.shape)
+            #for jo in ankles:
+             #   cv2.circle(img, (int(jo[0]), int(jo[1])), 8, [255,0,0], thickness=-1)
+            #for kn in knees:
+             #   cv2.circle(img, (int(kn[0]), int(kn[1])), 8, [255,0,0], thickness=-1)
+
+            for can in candidates: # einfuegen falls alles plotten
+                cv2.rectangle(img, can[0], can[1],[255,0,0], 4)
+            #cv2.rectangle(img,tuple(balls[-1][:2]), tuple(balls[-1][2:]), [255,0,0], 4)
+
+            plt.imshow(img, 'gray')
+            plt.title("Detected FOM frame"+ str(temp))
+            plt.show()
+        """
+        if close_to_wrist:
+            frame_before_close_wrist = True
+        else:
+            frame_before_close_wrist = False
+        """
+        t+=1
+        images = np.roll(np.array(images), -1, axis=0)
+        images[0] = images[1].copy()
+        images[1] = frame
+    print("time for %s frames"%t, (time.time() - start) * 1000)
+
+    return frame_indizes, location, candidates_per_frame
+
+# 40mph_1us_1.2f_170fps_40m_sun # 40mph_10us_6f_100fps_40m_cloudy # 40mph_10us_11f_100fps_noisy.avi
+
+
+example ="#8 RHP Cole Johnson" #48 RHP Tom Flippin # #15 Brandon Coborn # #10 Matt Glomb #26 RHP Tim Willites" (willites camera moves) #00 RHP Devin Smith # #10 Matt Glomb
+BASE = "/Users/ninawiedemann/Desktop/UNI/Praktikum/high_quality_testing/pitcher/"+example+".mp4" #"data/Matt_Blais/" # für batter: pic davor, 03 streichen und (int(idx+1))
+joints_path = "/Volumes/Nina Backup/high_quality_outputs/"+example+".json"
+#joints_path = "/Volumes/Nina Backup/Nina's Pitch/40mph_10us_6f_100fps_40m_cloudy.json"
+
+BASE = "/Volumes/Nina Backup/CENTERFIELD bsp videos/3d69a818-568e-4eef-9d63-24687477e7ee.mp4"
+joints_path = "/Volumes/Nina Backup/outputs/new_videos/cf/490770_3d69a818-568e-4eef-9d63-24687477e7ee_pitcher.json"
+joints = from_json(joints_path)[:,:12,:]
+print(joints.shape)
+
+#frame_indizes, location, candidates_per_frame = detect_ball("/Volumes/Nina Backup/Nina's Pitch/40mph_10us_6f_100fps_40m_cloudy.avi", joints_array=joints)
+#sys.exit()
+
+frame_indizes, location, candidates_per_frame = detect_ball(BASE, joints_array = joints, plotting=True, min_area=50) #400)
+
+
+
+
 # BALL DETECTION:
 
 # We read the images as grayscale so they are ready for thresholding functions.

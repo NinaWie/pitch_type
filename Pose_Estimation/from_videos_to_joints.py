@@ -98,7 +98,7 @@ for day in listdir(directory):
         tic1 = time.time()
         p=0
         events_dic = {}
-        events_dic["video_directory"]= subdirectory
+        events_dic["video_directory"] = subdirectory
         events_dic["bbox_batter"] = [left_b, right_b, top_b, bottom_b]
         events_dic["bbox_pitcher"] = [left_p, right_p, top_p, bottom_p]
         events_dic["start_time"]=time.time()
@@ -120,9 +120,9 @@ for day in listdir(directory):
     	#     continue
         try:
             df_res= df_coordinates(df,center_dic, ["Pitcher", "Batter"], interpolate = True)
-	    except (ValueError,KeyError):
-    	    print("batter not detected in any frame")
-    	    continue
+        except (KeyError, ValueError) as e:
+            print("batter not detected in any frame")
+            continue
         pitcher_array = np.zeros((p, 18,2))
         for i in range(p):
             try:
