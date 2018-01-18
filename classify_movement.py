@@ -17,35 +17,6 @@ from test import test
 from data_preprocess import JsonProcessor
 from tools import Tools
 
-def testing(save_path, sequ_len=100, start = 80):
-    dic_release_high_quality = {"#31 LHP Michael Chavez (2)": 165, "#00 RHP Devin Smith": 130, "#4 RHP Parker Swindell": 125,
-                           "#5 RHP Matt Blais (2)": 335, "#5 RHP Matt Blais (3)":335, "#5 RHP Matt Blais (4)": 138,
-                            "#5 RHP Matt Blais (5)": 305, "#5 RHP Matt Blais 5-3 GO (2)": 158, "#5 RHP Matt Blais 5-3 GO": 160,
-                            "#8 RHP Cole Johnson (2)": 115, "#8 RHP Cole Johnson": 90, "#9 RHP Ryan King (2)": 170,
-                            "#9 RHP Ryan King": 150, "#26 RHP Tim Willites (2)":190, "#26 RHP Tim Willites (3)":158,
-                            "#26 RHP Tim Willites": 188, "#31 LHP Michael Chavez (3)": 160, "#31 LHP Michael Chavez":345,
-                            "#31 LHP Michael Chavez 5-3 GO": 78, "#42 LHP Michael Chavez": 470, "#45 LHP Steffen Simmons (2)":230,
-                            "#45 LHP Steffen Simmons": 230, "#48 RHP Tom Flippin 6-3 GO": 525, "#48 RHP Tom Flippin": 282,
-                            "Menlo Park Legends #98 RHP Zac Grotz":290, "#5 RHP Matt Blais": 252}
-    #with open("dic_release_high_quality.json", "r") as outfile:
-    #    dic_release_high_quality = json.load(outfile)
-    prepro = JsonProcessor()
-    data, files = prepro.get_test_data(test_json_files, test_data_path, sequ_len, start, shift=80, labels=dic_release_high_quality)
-    data = (data-np.mean(data))/np.std(data)
-    lab, out = test(data, save_path)
-    for i in range(len(files)):
-        print(lab[i], files[i])
-        #res[files[i]]= float(lab[i][0])
-    return 0
-    for i in range(len(files)):
-        try:
-            real = dic_release_high_quality[files[i]]
-            if real>start+sequ_len or real<start:
-                print("output", lab[i], "but sequence was not containing release frame")
-            else:
-                print("output", lab[i], "real label: ", real-start)
-        except KeyError:
-            print("output", lab[i], "no real available")
 
 def training(save_path, data_path, csv, label_name= "Pitch Type", player = "pitcher", sequ_len = 160, max_shift=30):
     prepro = JsonProcessor()
@@ -87,7 +58,7 @@ def training(save_path, data_path, csv, label_name= "Pitch Type", player = "pitc
 # test_json_files = "/Volumes/Nina Backup/high_quality_outputs/"
 # test_data_path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/high_quality_testing/pitcher/"
 # save =  "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/saved_models/pitch_type_svcf"
-# csv_path = ""
+# csv_path = "train_data/"
 
 path_outputs = "/scratch/nvw224/pitch_type/Pose_Estimation/outputs/"
 test_json_files = "/scratch/nvw224/pitch_type/Pose_Estimation/v0testing/"

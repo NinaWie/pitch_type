@@ -22,7 +22,7 @@ class Tools:
     def normalize01(data):
         maxi = np.amax(data, axis=1)
         mini = np.amin(data, axis = 1)
-        res = np.asarray([(data[:,i]-mini)/(maxi-mini) for i in range(len(data[0]))])
+        res = np.asarray([(data[:,i]-mini)/(maxi-mini+0.000001) for i in range(len(data[0]))])
         data_new = np.swapaxes(res, 0,1)
         return data_new
 
@@ -275,6 +275,8 @@ class Tools:
     def shift_data(data, labels, shift_labels= True, max_shift=30):
         new_data=[]
         for i in range(len(data)):
+            bound_shift = min(max_shift, len(data[0])-max_shift-labels[i])
+            # print(bound_shift)
             shift = np.random.randint(-max_shift, max_shift)
             new = np.roll(data[i], shift, axis=0)
             if shift_labels:
@@ -283,12 +285,12 @@ class Tools:
         return np.array(new_data), labels
 
     @staticmethod
-    def flip_x_data(data):
+    def flip_x_data(data, x = 0):
         for i in range(len(data)):
-            mean = np.mean(data[i, :, :, 0])
-            flipped = (data[i, :,:,0]-mean)*(-1)
+            mean = np.mean(data[i, :, :, x])
+            flipped = (data[i, :,:,x]-mean)*(-1)
             flipped+=mean
-            data[i,:,:,0] = flipped
+            data[i,:,:,x] = flipped
         return data
 
     @staticmethod
@@ -340,3 +342,42 @@ class Tools:
             return new[:, cut-1:-cut]
         else:
             return new[:,cut:-cut]
+
+    @staticmethod
+    def extend_data_old(joints_array_batter, labels):
+        """
+        normalizes data between 0 and 1, then varies them by shifting and stretching (exponentiation) data
+        forms variations array of possible data changes, then randomly selects 5 of these
+        returns an array of 5 times the size of joints_array_batter
+        """
+        def shift_trajectory(play, label, shift):
+            new = np.roll(play, shift, axis = 0)
+            for i in range(abs(shift)):
+                if shift>0:
+                    new[i]=new[shift]
+                else:
+                    new[-i-1]=new[shift-1]
+            return new, label+shift
+
+        shifts = [-15, -12, -10, -7, -5, 5]
+        stretch = [0.5, 0.75, 1.25, 1.5]
+        variations = []
+        for s in shifts:
+            for st in stretch:
+                variations.append((s, st))
+
+        norm = Tools.normalize01(joints_array_batter).tolist()
+        #labels = labels.tolist()
+        M, N, j, xy = joints_array_batter.shape
+        more_data = np.zeros((M*6, N, j, xy))
+        more_data[:M]=np.array(norm)
+        ind = M
+        for i in range(len(norm)):
+            var = np.array(variations)[np.random.permutation(len(variations))[:5]]
+            for j in var:
+                #print(i,j)
+                new_data, new_label = shift_trajectory(np.array(norm[i]**j[1]), labels[i], int(j[0]))
+                more_data[ind] = new_data
+                labels.append(new_label)
+                ind+=1
+        return more_data, labels

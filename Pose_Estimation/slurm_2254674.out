@@ -1,9 +1,0 @@
-['get_model.sh', '.DS_Store', 'get_model.sh~', '_trained_COCO', 'pose_model.pth', '_trained_MPI']
-('input file: ', '/scratch/nvw224/videos/atl/2017-05-06/center field/490555-6925bfea-7d8a-4b55-a818-d18d547f3cb6.mp4', '.mp4')
-end of video capture
-('Time to read in video and handle one:', 60.40246796607971)
-('Time for continuity ', 2.7295939922332764)
-('Time for continuity ', 2.7852888107299805)
-('time for df_coordinates', 11.561157941818237)
-('shape', (1, 167, 18, 2))
-('Time for whole video to array: ', 72.28018403053284)

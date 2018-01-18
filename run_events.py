@@ -92,43 +92,6 @@ class Runner(threading.Thread):
         train_ind = ind[:SEP]
         test_ind = ind[SEP:]
 
-        # RNN tflearn
-        if self.network=="tflearn":
-            import tflearn
-            from tflearn import DNN
-            train_x = self.data[train_ind]
-            testing = self.data[test_ind]
-            test_x = testing[:-40]
-            val_x = testing[-40:]
-            labels_string_train = self.labels_string[train_ind]
-            labels_string_testing = self.labels_string[test_ind]
-            labels_string_test = labels_string_testing[:-10]
-            labels_string_val = labels_string_testing[-10:]
-            train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
-            train_t = Tools.onehot_with_unique(labels_string_train, self.unique)
-            test_t = Tools.onehot_with_unique(labels_string_test, self.unique)
-            print("Train", train_x.shape, train_t.shape, labels_string_train.shape, "Test", test_x.shape, test_t.shape, labels_string_test.shape, "Val", val_x.shape, labels_string_val.shape)
-            len_train, N, nr_joints, nr_coordinates = train_x.shape
-            tr_x = train_x.reshape(len_train, N, nr_joints*nr_coordinates)
-            te_x = test_x.reshape(len(test_x), N, nr_joints*nr_coordinates)
-            val = val_x.reshape(len(val_x), N, nr_joints*nr_coordinates)
-
-            out, net = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes,self.nr_layers, self.n_hidden, self.rate_dropout)
-            m = DNN(net)
-            m.fit(tr_x, train_t, validation_set=(te_x, test_t), show_metric=True, batch_size=self.BATCH_SZ, snapshot_step=1000, n_epoch=self.EPOCHS)
-            # labels_string_test = labels_string_test[:40]
-            out_test = m.predict(val)
-            pitches_test = Tools.decode_one_hot(out_test, self.unique)
-            print("Accuracy test: ", Tools.accuracy(pitches_test, labels_string_val))
-            print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_val))
-            print("True                   Test                 ", self.unique)
-            # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-            for i in range(len(labels_string_test)):
-                print('{:20}'.format(labels_string_val[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
-
-            return pitches_test, out_test
-
-
         labels = Tools.onehot_with_unique(self.labels_string, self.unique)
         ex_per_class = self.BATCH_SZ//nr_classes
         BATCHSIZE = nr_classes*ex_per_class
@@ -136,7 +99,11 @@ class Runner(threading.Thread):
         self.data = Tools.normalize01(self.data)
         train_x = self.data[train_ind]
         test_x = self.data[test_ind]
-        
+
+        # print(train_x[:10])
+        # print(np.any(np.isnull(train_x)))
+        # print(labels[:20])
+
         # train_x = self.data[train_ind]
         # me = np.mean(train_x)
         # std = np.std(train_x)
@@ -174,10 +141,6 @@ class Runner(threading.Thread):
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         elif self.network == "rnn":
             out, logits = model.RNN(x, nr_classes, self.n_hidden, self.nr_layers)
-        elif self.network=="conv1d(256,5,2)-conv1d(256,3)-conv1d(128,3)-conv1d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
-            out, logits = model.conv1dnet(x, nr_classes, training, self.rate_dropout, self.act)
-        elif self.network=="conv2d(256,5,2)-conv2d(256,3)-conv2d(128,3)-conv2d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
-            out, logits = model.conv2dnet(x, nr_classes, training, self.rate_dropout, self.act)
         elif self.network=="adjustable conv2d":
             out, logits = model.conv2d(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
@@ -217,7 +180,7 @@ class Runner(threading.Thread):
                                                         self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         elif self.network == "conv+rnn":
             first_out, _ =  model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
-                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=20)
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=128)
             print(first_out)
             out, logits = model.RNN(first_out, nr_classes, self.n_hidden, self.nr_layers)
         else:
@@ -267,16 +230,6 @@ class Runner(threading.Thread):
         # TRAINING
 
         sess.run(tf.global_variables_initializer())
-
-        def balanced_batches(x, y, nr_classes):
-            #print("balanced function: ", nr_classes)
-            for j in range(self.batch_nr_in_epoch):
-                liste=np.zeros((nr_classes, ex_per_class))
-                for i in range(nr_classes):
-                    # print(j, i, np.random.choice(index_liste[i][0], ex_per_class))
-                    liste[i] = np.random.choice(index_liste[i], ex_per_class, replace=True)
-                liste = liste.flatten().astype(int)
-                yield j, x[liste], y[liste]
 
         def batches(x, y, nr_classes, batchsize=40):
             permute = np.random.permutation(len(x))

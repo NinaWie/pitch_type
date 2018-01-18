@@ -11,32 +11,6 @@ import threading
 from tools import Tools
 from model import Model
 
-def test(data, restore_file):
-    """
-    Runs model of restore_file for the data
-    data must be normalized before and aligned if desired
-    returns labels
-    """
-    tf.reset_default_graph()
-    #sess = tf.InteractiveSession()
-
-    saver = tf.train.import_meta_graph(restore_file+'.meta')
-    graph = tf.get_default_graph()
-
-    sess = tf.Session()
-    saver.restore(sess, restore_file)
-    out = tf.get_collection("out")[0]
-    unique = tf.get_collection("unique")[0]
-    out_test = sess.run(out, {"input:0":  data, "training:0": False})
-
-    # Evaluation
-    pitches_test = Tools.decode_one_hot(out_test,  unique.eval(session = sess))
-    try:
-        pitches = [elem.decode("utf-8") for elem in pitches_test]
-    except AttributeError:
-        pitches = pitches_test
-    return pitches, out_test
-
 class Runner(threading.Thread):
 
     def __init__(self, data, labels_string, SAVE = None, files = [], BATCH_SZ=40, EPOCHS = 60, batch_nr_in_epoch = 100,
@@ -93,43 +67,7 @@ class Runner(threading.Thread):
         train_ind = ind[:SEP]
         test_ind = ind[SEP:]
 
-        # RNN tflearn
-        if self.network=="tflearn":
-            import tflearn
-            from tflearn import DNN
-            train_x = self.data[train_ind]
-            testing = self.data[test_ind]
-            test_x = testing[:-40]
-            val_x = testing[-40:]
-            labels_string_train = self.labels_string[train_ind]
-            labels_string_testing = self.labels_string[test_ind]
-            labels_string_test = labels_string_testing[:-10]
-            labels_string_val = labels_string_testing[-10:]
-            train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
-            train_t = Tools.onehot_with_unique(labels_string_train, self.unique)
-            test_t = Tools.onehot_with_unique(labels_string_test, self.unique)
-            print("Train", train_x.shape, train_t.shape, labels_string_train.shape, "Test", test_x.shape, test_t.shape, labels_string_test.shape, "Val", val_x.shape, labels_string_val.shape)
-            len_train, N, nr_joints, nr_coordinates = train_x.shape
-            tr_x = train_x.reshape(len_train, N, nr_joints*nr_coordinates)
-            te_x = test_x.reshape(len(test_x), N, nr_joints*nr_coordinates)
-            val = val_x.reshape(len(val_x), N, nr_joints*nr_coordinates)
-
-            out, net = model.RNN_network_tflearn(N, nr_joints*nr_coordinates, nr_classes,self.nr_layers, self.n_hidden, self.rate_dropout)
-            m = DNN(net)
-            m.fit(tr_x, train_t, validation_set=(te_x, test_t), show_metric=True, batch_size=self.BATCH_SZ, snapshot_step=1000, n_epoch=self.EPOCHS)
-            # labels_string_test = labels_string_test[:40]
-            out_test = m.predict(val)
-            pitches_test = Tools.decode_one_hot(out_test, self.unique)
-            print("Accuracy test: ", Tools.accuracy(pitches_test, labels_string_val))
-            print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_val))
-            print("True                   Test                 ", self.unique)
-            # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-            for i in range(len(labels_string_test)):
-                print('{:20}'.format(labels_string_val[i]), '{:20}'.format(pitches_test[i]), ['%.2f        ' % elem for elem in out_test[i]])
-
-            return pitches_test, out_test
-
-
+        self.data = Tools.normalize(self.data)
         labels = Tools.onehot_with_unique(self.labels_string, self.unique)
         ex_per_class = self.BATCH_SZ//nr_classes
         BATCHSIZE = nr_classes*ex_per_class
@@ -139,8 +77,8 @@ class Runner(threading.Thread):
         std = np.std(train_x)
         test_x = self.data[test_ind]
 
-        train_x = (train_x - me)/std
-        test_x = (test_x -me)/std
+        #train_x = (train_x - me)/std
+        #test_x = (test_x -me)/std
 
         print("mean of train", np.mean(train_x))
         print("mean of test", np.mean(test_x))
@@ -171,10 +109,6 @@ class Runner(threading.Thread):
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
         elif self.network == "rnn":
             out, logits = model.RNN(x, nr_classes, self.n_hidden, self.nr_layers)
-        elif self.network=="conv1d(256,5,2)-conv1d(256,3)-conv1d(128,3)-conv1d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
-            out, logits = model.conv1dnet(x, nr_classes, training, self.rate_dropout, self.act)
-        elif self.network=="conv2d(256,5,2)-conv2d(256,3)-conv2d(128,3)-conv2d(1,1)-dense(1024)-dense(128),dense(nr_classes)":
-            out, logits = model.conv2dnet(x, nr_classes, training, self.rate_dropout, self.act)
         elif self.network=="adjustable conv2d":
             out, logits = model.conv2d(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
             self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
@@ -334,16 +268,13 @@ class Runner(threading.Thread):
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 
-        if self.files is not []:
+        if self.files!=[]:
             assert len(self.files)==len(self.labels_string)
-            assert len(test_inds)==len(labels_string_test)
+            assert len(test_ind)==len(labels_string_test)
             for i in range(len(pitches_test)):
                 if pitches_test[i]!=labels_string_test[i]:
-                    print(files[test_inds[i]], "out", pitches_test[i], "true", labels_string_test[i])
+                    print(self.files[test_ind[i]], "out", pitches_test[i], "true", labels_string_test[i])
         pitches = np.append(pitches_test, pitches_train, axis = 0)
         labs = np.append(labels_string_test, labels_string_train, axis = 0)
         #print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
         return test_ind, pitches_test, labels_string_test[i]
-
-#runner = Runner()
-#pitches, accuracies = runner.runscript(self.data_raw[20:30], labels[20:30], np.self.unique(labels).tolist(), self.RESTORE="./model")
