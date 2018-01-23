@@ -6,6 +6,23 @@ import scipy.stats
 from os import listdir
 import json
 
+def get_data_from_csv(cf, label, min_length=160):
+    print("number of different games", len(np.unique(cf["Game"].values)), "length of csv file", len(cf.index))
+    data = []
+    labels = []
+    for i in cf.index:
+        d = np.array(eval(cf.loc[i]["Data"]))
+        if len(d)<min_length or pd.isnull(cf.loc[i][label]):
+            # print("too short or wrong label", cf.loc[i][label])
+            continue
+        data.append(d[:min_length])
+        labels.append(cf.loc[i][label])
+    data = np.array(data)
+    labels = np.array(labels)
+    unique = np.unique(labels)
+    print(data.shape, labels.shape, unique)
+    return data, labels
+
 class JsonProcessor:
     #def __init__(self):
 
@@ -14,6 +31,7 @@ class JsonProcessor:
         joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
                 "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
                 "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
+
         with open(file, 'r') as inf:
             out = json.load(inf)
 
@@ -67,7 +85,7 @@ class JsonProcessor:
         if pd.isnull(out):
             return "Unknown"
         if label_name=="Pitch Type" or label_name=="Pitching Position (P)":
-            if out=="Unknown Pitch Type":
+            if out=="Unknown Pitch Type" or out=="Eephus":
                 return "Unknown"
             else:
                 return out

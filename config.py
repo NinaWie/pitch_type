@@ -15,6 +15,18 @@ flags.DEFINE_string('data_path', "train_data/cf_data.csv", 'path for arrays and 
 flags.DEFINE_boolean('superclasses', False, 'if classes should be sorted in superclasses Fastball, Breaking ball and Changup')
 flags.DEFINE_integer('min_class_members', 10, 'classes with less than x data examples are excluded')
 
+# FMO detection
+flags.DEFINE_float('metric_thresh', 0.5, 'threshold below which slopes and distance metric is classified a ball trajectory')
+flags.DEFINE_integer('min_dist', 10, 'minimum distance (in pixel) a fast moving object must have travelled to be added to graph')
+flags.DEFINE_float('factor_pixel_feet', 0.5, 'distance in reality in feet * factor_pixel_feet = distance on image in pixel (required to calculate speed)')
+flags.DEFINE_string('pitcher_mound_coordinates', '[110, 140]', 'xy coordinate of pitchers mound center (to calculate distance of ball from pitcher)')
+flags.DEFINE_string('batter_base_coordinates', '[690, 288]', 'xy coordinate of batter base center (to calculate distance of ball from pitcher)')
+flags.DEFINE_integer('max_frames_first_move', 10, 'if first movement has started at frame i, it must be maximal i+10 when a sequence is classified as the first move')
+flags.DEFINE_boolean('refine', True, 'set False if first movement should not be refined as the moment the leg is highest')
+flags.DEFINE_integer('refine_range', 10, 'radius around predicted first movement where it can be refined')
+
+
+
 
 # # FROM CAPSNET
 #

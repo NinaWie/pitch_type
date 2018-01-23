@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import scipy as sp
+from scipy import stats
 #import scipy.stats
 
 class Tools:
@@ -222,8 +223,8 @@ class Tools:
         out = np.array(out_list)
         ground_truth = np.array(ground_truth_list)
         same = out[np.where(out==ground_truth)[0]]
-        right_frequency = sp.stats.itemfreq(same)
-        total_frequency = sp.stats.itemfreq(ground_truth)
+        right_frequency = stats.itemfreq(same)
+        total_frequency = stats.itemfreq(ground_truth)
         right_dict = dict(zip(right_frequency[:,0], right_frequency[:,1]))
         total_dict = dict(zip(total_frequency[:,0], total_frequency[:,1]))
 
@@ -233,8 +234,22 @@ class Tools:
                 acc[types] = (int(right_dict[types])/float(total_dict[types]))
             except KeyError:
                 acc[types] = 0
-
         return acc
+
+
+    @staticmethod
+    def confused_classes(out, labels):
+        import operator
+        for pitch in np.unique(labels):
+            inds = np.where(labels==pitch)[0]
+            outs_type = out[inds]
+
+            frequ = stats.itemfreq(outs_type)
+            values = np.asarray(frequ[:,1]).astype(int)
+            dictionary = dict(zip(frequ[:,0], (values/float(np.sum(values))*100).astype(int)))
+            sorted_dic = sorted(dictionary.items(), key=operator.itemgetter(1), reverse=True)
+            print(pitch,"percentage predicted as", sorted_dic)
+
 
     @staticmethod
     def accuracy_in_range(out, ground_truth, r):
@@ -275,7 +290,10 @@ class Tools:
     def shift_data(data, labels, shift_labels= True, max_shift=30):
         new_data=[]
         for i in range(len(data)):
-            bound_shift = min(max_shift, len(data[0])-max_shift-labels[i])
+            if shift_labels:
+                bound_shift = min(max_shift, len(data[0])-max_shift-labels[i])
+            else:
+                bound_shift = max_shift
             # print(bound_shift)
             shift = np.random.randint(-max_shift, max_shift)
             new = np.roll(data[i], shift, axis=0)

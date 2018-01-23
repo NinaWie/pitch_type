@@ -1,3 +1,11 @@
+"""
+to run pose estimation for one video
+
+performance: ca 60 sec runtime, of which 2 seconds are the processing, file saving and also including the first frame, and the rest is ALL runtime required by the handle_one function for pose Estimation
+
+For reducing the multiplier (different scales) from 4 to just one scale (resolution very low), the runtime for everything is around 8.5, just for handle one at 7 sec (slighly more than claimed in the paper)
+"""
+
 
 import time
 from torch import np
@@ -9,7 +17,7 @@ import os
 import codecs, json
 import tensorflow as tf
 
-from Functions import handle_one,df_coordinates , to_json, player_localization
+from Functions import *
 import ast
 import cv2
 from test import test
@@ -39,44 +47,6 @@ out_dir = args.output_folder
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 
-def color_and_save_image(ori_img, all_peaks, save_name):
-    for x in range(len(all_peaks)):
-        for j in range(len(all_peaks[x])):
-            cv2.circle(ori_img, (int(all_peaks[x,j,0]),int(all_peaks[x,j,1])) , 2, colors[x], thickness=-1)
-    cv2.imwrite(save_name, ori_img)
-
-def define_bbox(res, boundaries, min_width=20):
-    """
-    return bbox from last detection, extended by factor* boxwidth
-    box: [left bound, right bound, upper bound, lower bound]
-    input is ouput of pose estimation and boundaries of frame
-    """
-    joints_for_bbox = np.where(res[:,0]!=0)[0]
-    # takes minima and maxima of the pose as edges of bounding box b
-    bbox = np.array([np.min(res[joints_for_bbox, 0]), np.max(res[joints_for_bbox, 0]),
-           np.min(res[joints_for_bbox, 1]), np.max(res[joints_for_bbox, 1])]).astype(int)
-    # extends bounding box by adding the width of the box on all sides (up to boundaries)
-    width = max(0.5*(bbox[1]-bbox[0]), min_width)
-    for i in range(len(bbox)): # every second of the box must subtract the width
-        bbox[i]-=width
-        width*=(-1)
-        if (bbox[i]<boundaries[i] and width<0) or (bbox[i]>boundaries[i] and width>0):
-            bbox[i]=boundaries[i]
-    return bbox
-
-def save_inbetween(arr, fi, out_dir, events_dic):
-    """
-    takes intermediate result array arr and saves it with the video name fi, and the output directory out_dir
-    events_dic is a dictionary containing meta information
-    """
-    pitcher_array = np.array(arr)
-    print("shape pitcher_array", pitcher_array.shape)
-    # NEW: JSON FORMAT
-    game_id = fi[:-4]
-    file_path_pitcher = out_dir+game_id
-    print(events_dic, file_path_pitcher)
-    to_json(pitcher_array, events_dic, file_path_pitcher)
-
 # FOR BATTER FIRST MOVEMENT
 # csv = pd.read_csv("/scratch/nvw224/csv_gameplay.csv", delimiter=";")
 # outcomes = csv["Play Outcome"].values
@@ -85,10 +55,10 @@ def save_inbetween(arr, fi, out_dir, events_dic):
 with open("center_dics.json", "r") as infile:
     centers = json.load(infile)
 
-for fi_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
+for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
 # ['5093fe5c-28d7-4229-9c3f-d1ccb6d12f71', 'a72a6e17-1644-44e8-9844-1ec65c89ebc5', '68206417-6071-4560-b035-e44bbbec3bab', '495dbb44-facf-4c33-adce-c859631c8a43', '4e773e7b-ccbe-445e-aec3-fde4397fbfea', '842244eb-a21a-4ee8-bb40-28ee3bcd73b9']:
 # ['847aeac1-54cd-4ab2-923b-f65189ac7655', 'da6888ec-4216-4835-8960-1557ac30802b', '1b1bf2f3-bdea-417a-aee0-07d2a01a9ce7', 'd86799fd-c93b-44e2-9d9d-da7bfd8f962f', '3af5ba29-535a-4050-9aec-e1687bd47c99', 'c82635e1-ad3c-40de-976e-7d50808b4b51']:
-    fi = fi_without+".mp4"
+    # fi = fi_without+".mp4"
 # ['5c909a14-f8ad-4228-86f4-c0c6f54699ab', '60c8b309-e459-4a30-b05f-4f6cfaf4ad95.mp4', '35dc98ef-ffb7-4bb0-b40d-0e646d2f2aaf.mp4','187506da-d7d9-40e9-8e91-a09575a9a150.mp4','5093fe5c-28d7-4229-9c3f-d1ccb6d12f71.mp4', '6a0c421d-86a5-423d-98f2-f712d0d579f5.mp4', 'd30e5ad6-0d31-4e9a-908b-decc7599d6be.mp4', '0416fe69-372e-45ae-81df-25adea895978.mp4', '458ee73e-7e22-4919-928e-e904a148fe0c.mp4']: #listdir(inp_dir): # ["cole_loncar.mp4"]: #["40mph_1us_1.2f_170fps_40m_sun.avi"]:
     if fi[0]=="." or fi[-4:]!=".mp4" or fi[:-4]+".json" in listdir(out_dir): # or fi[:-4]+".json" in listdir(out_dir+"handle_one/"): ["#8 RHP Cole Johnson (2).mp4"]: #
     	print("already there or wrong ending", fi)
@@ -104,18 +74,18 @@ for fi_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
     #     print("not in csv")
     #     continue
 
-    try:
-        for i in open(inp_dir+fi+".dat").readlines():
-            datContent=ast.literal_eval(i)
-    except IOError:
-        print("dat file not found", fi)
-        continue
-    bottom_b=datContent['Pitcher']['bottom']
-    left_b=datContent['Pitcher']['left']
-    right_b=datContent['Pitcher']['right']
-    top_b=datContent['Pitcher']['top']
-    print(bottom_b, left_b, right_b, top_b)
-    center = np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
+    # try:
+    #     for i in open(inp_dir+fi+".dat").readlines():
+    #         datContent=ast.literal_eval(i)
+    # except IOError:
+    #     print("dat file not found", fi)
+    #     continue
+    # bottom_b=datContent['Pitcher']['bottom']
+    # left_b=datContent['Pitcher']['left']
+    # right_b=datContent['Pitcher']['right']
+    # top_b=datContent['Pitcher']['top']
+    # print(bottom_b, left_b, right_b, top_b)
+    center = centers[fi] # np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
 
     ##############
 
@@ -150,11 +120,12 @@ for fi_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
     #### for batter first
     videos = []
 
+
     # Not found until there is a frame with a person detected
     while not found:
         #len(df[player][i])==0:
         ret, frame = video_capture.read()
-        out = handle_one(frame[top_b:bottom_b, left_b:right_b]) # changed batter first move
+        out = handle_one(frame) #[top_b:bottom_b, left_b:right_b]) # changed batter first move
         for person in range(len(out)):
             hips=np.asarray(out[person])[indices]
             hips=hips[np.sum(hips,axis=1)!=0]
@@ -171,8 +142,8 @@ for fi_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
             pitcher_array.append([[0,0] for j in range(18)])
             print("no person detected in frame", p)
 
-    #left_b = 0 # change for batters first move
-    #top_b = 0
+    left_b = 0 # change for batters first move
+    top_b = 0
     first_frame = np.array(out[loc])
     first_frame[:,0]+=left_b
     first_frame[first_frame[:,0]==left_b] = 0 # if the output was 0 (missing value), reverse box addition

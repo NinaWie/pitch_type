@@ -7,7 +7,7 @@ import time
 import json
 import argparse
 
-from tools import Tools
+from config import cfg
 
 class Node():
     def __init__(self, x1, y1, x2, y2):
@@ -24,7 +24,7 @@ class Node():
         self.dist = []
     def add_child(self, no):
         dist = np.linalg.norm(no.center-self.center)
-        if dist>10:
+        if dist>cfg.min_dist:
             self.children.append(no)
             self.area_diffs.append(abs(1-(no.area/self.area)))
             y_diff = (self.center[1]-no.center[1])
@@ -50,8 +50,7 @@ def get_difference(im_tm1, im_t, im_tp1):
     sp = cv2.meanStdDev(delta_plus)
     sm = cv2.meanStdDev(delta_minus)
     s0 = cv2.meanStdDev(delta_0)
-    # print("E(d+):", sp, "\nE(d-):", sm, "\nE(d0):", s0)
-
+    # thresholds: bigger than mean + 3* std
     th = [
         sp[0][0, 0] + 3 * math.sqrt(sp[1][0, 0]),
         sm[0][0, 0] + 3 * math.sqrt(sm[1][0, 0]),
@@ -59,13 +58,11 @@ def get_difference(im_tm1, im_t, im_tp1):
     ]
 
     # OPENCV THRESHOLD
-
     ret, dbp = cv2.threshold(delta_plus, th[0], 255, cv2.THRESH_BINARY)
     ret, dbm = cv2.threshold(delta_minus, th[1], 255, cv2.THRESH_BINARY)
     ret, db0 = cv2.threshold(delta_0, th[2], 255, cv2.THRESH_BINARY)
 
     detect = cv2.bitwise_and(cv2.bitwise_and(dbp, dbm), cv2.bitwise_not(db0))
-    # nd = cv2.bitwise_not(detect)
     return detect
 
 
@@ -89,28 +86,27 @@ def get_candidates(nd, min_area):
 
         lt = (stat[cv2.CC_STAT_LEFT], stat[cv2.CC_STAT_TOP])
         rb = (lt[0] + stat[cv2.CC_STAT_WIDTH], lt[1] + stat[cv2.CC_STAT_HEIGHT])
-        #if np.any(np.array(lt)==0) or np.any(np.array(rb)==0):
-         #   continue
-        bottomLeftCornerOfText = (lt[0], lt[1] - 15)
-
+        # left top and bottom right corners saved as candidates
         candidates.append((lt, rb, area))
     return candidates
 
 
 def first_movement(cand_list, joints, ankle_move, fr):
+    """
+    determines if a movement occured close to ankles and knees
+    --> returns ankle_move list, adding frame number to the list if a detection was close to the legs
+    cand_list: list of candidates in current frame
+    joints: joint detections in current frame, array of size nr_joints* nr_coordinates
+    ankle_move: list of previous frames with a movement clos to the leg
+    fr: current frame index
+    """
     knees= joints[[7, 10],:]
     ankles = joints[[8,11],:]
-    #print(knees, ankles, knees-ankles, np.mean(knees-ankles, axis=0))
-    dist_ankle = np.linalg.norm(np.mean(knees-ankles, axis=0)) #//2
-    #print("radius", dist_ankle)
+    dist_ankle = np.linalg.norm(np.mean(knees-ankles, axis=0))  # radius: determined by mean distance between knees and ankles
     for k, cand in enumerate(cand_list):
         x1, y1 = cand[0]
         x2, y2 = cand[1]
         center = [(x1+x2)/2, (y1+y2)/2]
-              #np.linalg.norm(cand.center - knees[0]),
-            #np.linalg.norm(cand.center - knees[1]), np.linalg.norm(cand.center - ankles[1]),
-                #                                     np.linalg.norm(cand.center - ankles[0]))
-        #print(np.linalg.norm(cand.center - knees[0])<radius, np.linalg.norm(cand.center - knees[1])<radius)
         norms = np.array([np.linalg.norm(center - knees[0]), np.linalg.norm(center - knees[1]), np.linalg.norm(center - ankles[0]), np.linalg.norm(center - ankles[1])])
         #print("center", cand.center, "knees", knees[0],knees[1], "ankles", ankles, "norms", norms)
         if np.any(norms<dist_ankle):
@@ -123,6 +119,12 @@ def first_movement(cand_list, joints, ankle_move, fr):
     #print(t, ankle_move)
 
 def plot(im_t, candidates, frame_nr):
+    """
+    plots a candidate detection as a red rectangle on the current image
+    im_t: current image
+    candidated: list of center points of candidates detected in this frame
+    frame_nr: current frame index (only for plot title)
+    """
     #print("DETECTED", t-1, whiteness_values[-1], candidate_values[-1])
     plt.figure(figsize=(10, 10), edgecolor='r')
     # print(candidates[fom])
@@ -141,6 +143,14 @@ def plot(im_t, candidates, frame_nr):
 
 
 def add_candidate(candidate, candidates_per_frame):
+    """
+    Transforms candidate to a graph node
+    --> adds this node firstly to list of candidates in the current frame
+    --> adds this node also as a child to the candidates in the previous frame if the distance is large enough
+    (threshold for distance which a FMO at least needs to move)
+    candidate: one candidate of shape [lt, rb, area]
+    candidates_per_frame: list of nodes of candidates in each frame
+    """
     # The first two elements of each `candidate` tuple are
     # the opposing corners of the bounding box.
     x1, y1 = candidate[0]
@@ -154,10 +164,16 @@ def add_candidate(candidate, candidates_per_frame):
             # print("previous detection", nodes.bbox, "gets child", no.bbox)
     return candidates_per_frame
 
-def ball_detection(candidates_per_frame, balls, metric_thresh =0.5):
+def ball_detection(candidates_per_frame, balls):
+    """
+    evaluates if consecutive candidates are a ball -  applies metric comparing slopes and distances of candidates in consecutive frames
+    candidates_per_frame: list containing the graph node references for each frame
+    balls: list of ball trajectory, empty if no ball detection in previous frame
+    metric_thresh: threshold when a trajectory is classified a ball
+    """
     if len(balls)==0:
         for cands3 in candidates_per_frame[-3]:
-            for j, cands2 in enumerate(cands3.children): # counts through children (ebene 2)
+            for j, cands2 in enumerate(cands3.children): # counts through children (level 2)
                 slope = cands3.slopes[j] # slope of 3 to 2
                 dist = cands3.dist[j]
                 area = cands3.area_diffs[j]
@@ -167,11 +183,11 @@ def ball_detection(candidates_per_frame, balls, metric_thresh =0.5):
                     #print("k", k, cands2.slopes[k], cands2.dist[k], cands2.area_diffs[k], cands2.angle_diffs[k])
                     #print("metric: ", abs(slope-cands2.slopes[k]), abs(1- dist/cands2.dist[k]), area, cands2.area_diffs[k])
                     metric = abs(slope-cands2.slopes[k]) + abs(1- dist/cands2.dist[k]) #+ area+cands2.area_diffs[k] + angle + cands2.angle_diffs[k]
-                    if metric<metric_thresh:
+                    if metric<cfg.metric_thresh:
                         balls = [cands3, cands2, cands1]
                     # if abs(slope-cands2.slopes[k]) < 0.1 and abs(dist-cands2.dist[k])<10:
                         return balls
-    else:
+    else: # if balls were detected in previous frame, don't check all combination of nodes with children, but only the children of the last ball detection
         j = balls[-2].children.index(balls[-1])
         slope = balls[-2].slopes[j] # slope of 3 to 2
         dist = balls[-2].dist[j]
@@ -181,7 +197,7 @@ def ball_detection(candidates_per_frame, balls, metric_thresh =0.5):
             #print("k", k, balls[-1].slopes[k], balls[-1].dist[k], balls[-1].area_diffs[k], balls[-1].angle_diffs[k])
             #print("metric: ", abs(slope-balls[-1].slopes[k]), abs(1- dist/balls[-1].dist[k]), area, balls[-1].area_diffs[k])
             metric = abs(slope-balls[-1].slopes[k]) + abs(1- dist/balls[-1].dist[k]) # + area+balls[-1].area_diffs[k] + angle + balls[-1].angle_diffs[k]
-            if metric<metric_thresh:
+            if metric<cfg.metric_thresh:
                 balls.append(cands1)
             # if abs(slope-cands2.slopes[k]) < 0.1 and abs(dist-cands2.dist[k])<10:
                 return balls
@@ -206,12 +222,20 @@ def _get_max_array(array_list):
         resultant_array = np.maximum(resultant_array, array)
     return resultant_array
 
-def trajectory_and_speed(balls, im_t, t, fps = 30, factor_pixel_feet=10, plotting=True):
+def trajectory_and_speed(balls, im_t, t, fps = 30, plotting=True):
+    """
+    returns the release frame and speed of a ball trajectory
+    input: balls: list of center coordinates of detected ball candidates in consecutive frames
+    im_t: for plotting image at current frame is required
+    t: current frame index
+    factor_pixel_feet: distance in reality in feet * factor_pixel_feet = distance on image in pixel
+    plotting: set true if trajectory should be plotted
+    """
     #plot(im_t, candidates, t)
     trajectory = np.array([elem.center for elem in balls]).astype(int)
     # print("trajectory", trajectory.tolist())
     # distance
-    dist_from_start = distance_projected(trajectory[0], np.array([110, 140]),np.array([690, 288]))
+    dist_from_start = distance_projected(trajectory[0], np.array(eval(cfg.pitcher_mound_coordinates)),np.array(eval(cfg.batter_base_coordinates)))
     speed = np.mean([np.linalg.norm(trajectory[i]- trajectory[i+1]) for i in range(len(trajectory)-1)])
     frames_shifted = dist_from_start/speed + len(balls)-1 # frames because current frame is already after nth ball detection
     # print("frames from release frame (using distance from center of base projected)", frames_shifted)
@@ -226,18 +250,22 @@ def trajectory_and_speed(balls, im_t, t, fps = 30, factor_pixel_feet=10, plottin
             img = cv2.line(img, tuple(trajectory[i]),tuple(trajectory[i+1]), color = 2)
         # img = cv2.line(img, tuple(trajectory[1]),tuple(trajectory[2]), color = 2)
         plt.imshow(img, 'gray')
-        plt.title("Ball trajectory at frame "+str(t)+ ", speed in mph: "+ str(speed*fps* 0.681818 /factor_pixel_feet))
+        plt.title("Ball trajectory at frame "+str(t)+ ", speed in mph: "+ str(speed*fps* 0.681818 /cfg.factor_pixel_feet))
         plt.show()
         # print("SPEED in mph", speed*fps* 0.681818 /factor_pixel_feet) # 1 ft/s = 0.681818 mph
         print("")
     return ball_release
 
-def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_length_first=5, every_x_frame=1, roi=None):
+def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_length_first=5, every_x_frame=3, roi=None):
     """
+    folder: path to video file (e.g. test.mp4)
+    min_area: minimum amount of pixels that a fast moving object must enclose - filtering out smaller ones (noise)
+    plotting: set True if all candidate detections should be shown
+    min_length_first:
+    joints_array: for finding the pitcher's first movement, the joint array of size nr_frames*nr_joints*2 is required
     roi: region of interest if not the whole frame is relevant, format: list [top, bottom, left, right] with top<bottom
     """
     fps = 30
-    factor_pixel_feet = 10
     cap = cv2.VideoCapture(folder)
     images=[]
     motion_images=[]
@@ -257,7 +285,7 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_le
     first_move_frame = 0 # if not found
     ball_trajectory = []
 
-    while t<300:
+    while True:
         ret, frame = cap.read()
         if frame is None:
             break
@@ -266,8 +294,6 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_le
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if roi is not None:
             frame = frame[roi[0]:roi[1], roi[2]:roi[3]]
-
-        # HERE INSERT FIRST MOVE QUALITATIVE EVALUATION
 
         if t>1:
             im_tm1 = images[-2]
@@ -285,26 +311,18 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_le
         im_every_x_1 = images[-every_x_frame]
         im_every_x_2 = images[-1]
 
+        # REMOVE NOISE FROM SHAKY CAMERA
         cumulative_motion = _get_max_array(motion_images)
         final_frame = nd.astype(int) - cumulative_motion.astype(int)
         final_frame[final_frame < 0] = 0
         candidates = get_candidates(final_frame.astype(np.uint8), min_area)
 
-        # NORMAL CANDIDATES (THREE IN A ROW)
-        # candidates = get_candidates(im_tm1, im_t, im_tp1, min_area)
-        #plt.figure(figsize=(10, 10), edgecolor='k')
-
-        ### HERE INSERT RELEASE FRAME CLOSE TO WRIST
         for i, candidate in enumerate(candidates):
             if t>0:
                 candidates_per_frame = add_candidate(candidate, candidates_per_frame)
-            ### HERE INSERT CLOSE TO WRIST
-            ### HERE INSERT SHORTEST PATH CODE
-            #save location of candidate and frame
-            #location.append(center)
             frame_indizes.append(t-1)
 
-        ### BALL DETECTION:
+        ### BALL DETECTION - CANDIDATES:
         l = np.array([len(candidates_per_frame[-i-1]) for i in range(3)])
         if np.all(l>0) and len(balls)==0:
             balls = ball_detection(candidates_per_frame, balls)
@@ -338,39 +356,30 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, min_le
         else:
             balls=[]
 
-        # FIRST MOVEMENT --> SHIFtED CANDIDATES
-
+        # FIRST MOVEMENT --> SHIFTED CANDIDATES
         if not first_move_found and joints_array is not None:
-        # SHIFTED CANDIDATES:
+            # SHIFTED CANDIDATES:
             detected_moves = get_difference(im_every_x_0, im_every_x_1, im_every_x_2)
             shifted_candidates = get_candidates(detected_moves, min_area)
-            #plt.figure(figsize=(10, 10), edgecolor='k')
 
             ### FIRST MOVEMENT:
             if shifted_candidates!=[]:
                 ankle_move = first_movement(shifted_candidates, joints_array[t-every_x_frame], ankle_move, t)
-            if len(ankle_move)>=min_length_first and t-ankle_move[-min_length_first]<10: #len(ankle_move)==3:
+            if len(ankle_move)>=min_length_first and t-ankle_move[-min_length_first]<cfg.max_frames_first_move: #len(ankle_move)==3:
                 print("first movement frame: ", (ankle_move[-min_length_first]))
                 plot(im_t, shifted_candidates, t)
                 first_move_found = True
                 first_move_frame = ankle_move[-min_length_first]
-                range_joints = joints_array[first_move_frame -10: first_move_frame +10]
-                grad = range_joints # np.gradient(range_joints, axis = 0) # OHNE GRADIENT; JUST HEIGHT OF LEG
-                mean_gradient = np.mean(grad[:, [7,8,10,11],1], axis = 1)
-                ### gradient plotting
-                # plt.plot(grad[:,:,1])
-                # plt.plot(mean_gradient, c="black")
-                # plt.title("black: mean height of knees and ankles")
-                # plt.show()
-                first_move_frame = first_move_frame-10+np.argmin(mean_gradient)
-                print("Refined first movement", first_move_frame)
+                if cfg.refine:
+                    range_joints = joints_array[first_move_frame -cfg.refine_range: first_move_frame +cfg.refine_range]
+                    grad = range_joints # np.gradient(range_joints, axis = 0) # OHNE GRADIENT; JUST HEIGHT OF LEG
+                    mean_gradient = np.mean(grad[:, [7,8,10,11],1], axis = 1)
+                    first_move_frame = first_move_frame - cfg.refine_range + np.argmin(mean_gradient)
+                print("First movement (possibly refined)", first_move_frame)
                 break
 
         if plotting and len(candidates)>0: #len(balls)>0: # ##
             plot(im_t, candidates, t)
-            #plt.imshow(cumulative_motion.astype(int))
-            #plt.show()
-
         t+=1
         images = np.roll(np.array(images), -1, axis=0)
         images[-1] = frame

@@ -48,17 +48,18 @@ def testing(save_path, sequ_len=100, start = 80):
         dic_release_high_quality = json.load(outfile)
 
     shift= [50, 60, 70]
+    number_possible_norms = 5
     prepro = JsonProcessor()
-    arr = np.zeros((len(shift), 4))
-    stds = np.zeros((len(shift), 4))
+    arr = np.zeros((len(shift), number_possible_norms))
+    stds = np.zeros((len(shift), number_possible_norms))
     for i, s in enumerate(shift):
         data, files = prepro.get_test_data(test_json_files, test_data_path, sequ_len, start, shift=s, labels=dic_release_high_quality)
-        for n in range(5):
+        for n in range(number_possible_norms):
             data_new = eval("norm"+str(n))(data)
             lab, out = test(data_new, save_path)
             arr[i,n] = (np.sum(np.absolute(np.array(lab)-s)))/float(len(lab))
             stds[i,n] = np.std(np.array(lab))
-    for x in range(5):
+    for x in range(number_possible_norms):
         print("mean error for norm ", x, np.mean(arr[:, x]))
         print("mean stds for norm ", x, np.mean(stds[:, x]))
     print(arr)

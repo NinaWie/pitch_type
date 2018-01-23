@@ -13,6 +13,7 @@ import json
 from run_events import Runner
 from test import test
 from os import listdir
+import os
 import codecs
 from data_preprocess import JsonProcessor
 
@@ -266,8 +267,8 @@ def testing(files, dic, restore_path, sequ_len):
 
 
 # define data paths
-path_sideview_labels = "sv_data.csv"
-path_centerfield_labels = "cf_data.csv"
+path_sideview_labels = os.path.join("train_data", "sv_data.csv")
+path_centerfield_labels = os.path.join("train_data","cf_data.csv")
 
 with open("train_data/pitcher_first_move_labels", "r") as infile:
     dic_lab = json.load(infile)

@@ -21,8 +21,8 @@ from test import test
 # test_data_path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/high_quality_testing/pitcher/"
 # save =  "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/saved_models/pitch_type_svcf"
 
-### BATTER FIRST MOVEMENT
-def first_move_batter_gradient(frames_joints_array, relevant_joints_list = range(0,12,1), cutoff=4, relevant_coordinate=0, minimum_sequ_len=1):
+### BATTER/PITCHER FIRST MOVEMENT
+def first_move_gradient(frames_joints_array, relevant_joints_list = range(0,12,1), cutoff=4, relevant_coordinate=0, minimum_sequ_len=1):
     """
     Returns frame index of batter's first step
     By looking where the mean gradient of the joints in relevant_joints_list is >cutoff
@@ -39,14 +39,14 @@ def first_move_batter_gradient(frames_joints_array, relevant_joints_list = range
                               for j in relevant_joints_list])
         mean_gradient = np.median(gradients, axis=0)
         move = np.where(np.absolute(mean_gradient)>cutoff)[0]
-        if cutoff< 1: # cannot be found at all
+        if cutoff< 0.4: # cannot be found at all
             return None
             break
         if len(move)!=0: # found one
             break
         cutoff-= 0.3 # if nothing found, lower the threshold
 
-    if len(move)==1:
+    if len(move)==1 or minimum_sequ_len==0:
         return move[0]
     while len(move)>minimum_sequ_len: # find sequence of length> minimum_sequ_len
         for i in range(minimum_sequ_len):
@@ -56,6 +56,59 @@ def first_move_batter_gradient(frames_joints_array, relevant_joints_list = range
             elif i==minimum_sequ_len-1:
                 return move[0]
     return move[0]
+
+### BATTER MOVEMENT
+def foot_to_ground(batter, release = 90, start_run = None, relevant_joints = [7,10, 8,11], relevant_coordinate = 1):
+    """
+    returns frame the batter's leg is highest before the swing, and then the moment the foot is back on the ground
+    (back to ground is a maximum of 10 frames later than the leg highest)
+    for this analysis, an estimaet for the release frame is required, plus the moment the batter starts to run is helpful
+    (if not given, release_frame+30 is taken)
+
+    batter: array of nr_frames*nr_joints*nr_coordinates
+    release:
+    relevant_joints_list: the joints which should be taken into account for the movement
+    relevant_coordinate: set to the index corresponding to the x coordinate (left-right)
+
+    OTHER VERSION:
+    idea: take only left or right foot, depending which one is lifted more (problem: position of foot in beginning)
+    in arguments: relevant_joints = [[7,10],[8,11]]
+
+    mean_right = np.mean(batter[:, relevant_joints[0], 1], axis=1)
+    mean_left = np.mean(batter[:, relevant_joints[1], 1], axis=1)
+    print(mean_right.shape)
+    means = np.array([mean_right, mean_left])
+    print(means.shape)
+    means_means = np.mean(means[:, :release-20], axis = 1)
+    start = release-20
+    left_or_right = np.argmin(np.amin(means[:, start:first_move] - np.swapaxes(np.array([means_means for _ in range(50)]), 0,1), axis = 1))
+    print("left_right", left_or_right)
+    print(np.amin(means, axis = 1).shape)
+    print("minimums", np.amin(means, axis = 1))
+    foot_up = start + np.argmin(means[left_or_right, start:first_move])
+    print("foot_up", foot_up)
+    mean_ground = np.mean(means[left_or_right, :foot_up-10])
+    print("mean", mean_ground)
+
+    #foot_down_gradient = first_move_batter_gradient(batter[:first_move],  relevant_joints_list=relevant_joints, relevant_coordinate=1, cutoff=4, minimum_sequ_len=1)
+    foot_down_gradient = foot_up + np.argmin(np.absolute(means[left_or_right, foot_up:foot_up+10]-mean_ground))# foot_up - 2+ np.where(np.gradient(target_sequence)[foot_up-70+2:]<0.1)[0][0]
+
+    plt.plot(means[left_or_right, foot_up:foot_up+10])
+    plt.plot([mean_ground for _ in range(10)])
+    plt.show()
+    """
+    if start_run is None:
+        start_run = release+30
+    leg_sequence = np.mean(batter[:, relevant_joints, relevant_coordinate], axis=1)
+    start = release-20
+    foot_up = start + np.argmin(leg_sequence[start:start_run])
+    if foot_up>start_run-5:
+        print("Too close to first step, not possible")
+        return None, None
+    mean_ground = np.mean(leg_sequence[:foot_up-10])
+    foot_down_gradient = foot_up + np.argmin(np.absolute(leg_sequence[foot_up:foot_up+10]-mean_ground))
+    print("in function: first step", start_run, "foot highest", foot_up, "foot down", foot_down_gradient)
+    return foot_up, foot_down_gradient
 
 def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_models/batter_first_rnn_10_40"):
     """

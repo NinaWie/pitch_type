@@ -189,7 +189,7 @@ def handle_one(oriImg):
     tic=time.time()
  #   print 3,time.time()-tic
     tic=time.time()
-    e=1
+    e=4
     b=0
     len_mul=e-b
     multiplier=multiplier[b:e]
@@ -205,11 +205,11 @@ def handle_one(oriImg):
         # print multiplier[m]
         tictic= time.time()
         scale = multiplier[m]
-        print(scale)
+        # print(scale)
         imageToTest = cv2.resize(oriImg, (0,0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_['stride'], model_['padValue'])
         imageToTest_padded = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,2,0,1))/256 - 0.5
-        print imageToTest_padded.shape
+        # print imageToTest_padded.shape
         feed = TORCH_CUDA(Variable(T.from_numpy(imageToTest_padded)))
         output1,output2 = model(feed)
  #       print time.time()-tictic,"first part"
@@ -456,7 +456,7 @@ def player_localization(handle_one ,old_array, low_thresh=0.1, higher_tresh = 0.
                         np.min(player_array[joints_for_bbox, 1]), np.max(player_array[joints_for_bbox, 1])]
         intersections.append(overlap(player_arr_bbox, old_arr_bbox)) # IoU of bbox of current and previous detetcon
 
-    print("dist", dist, "inter", intersections)
+    # print("dist", dist, "inter", intersections)
     # cases where we set frame to zeros (missing values):
     # if no person detected at all
     # if no person is intersection more than IoU = low_thresh
@@ -467,7 +467,7 @@ def player_localization(handle_one ,old_array, low_thresh=0.1, higher_tresh = 0.
     else:
         # --- FIRST VERSION: simply take the one with highest intersection
         target = np.argmax(intersections)
-        print("taken index from distances:", target)
+        # print("taken index from distances:", target)
         res = handle_one[target]
         # --- SECOND VERSION: minimum of distance of joints is taken as target, if IoU>0.1 (to prevent it from picking up simply the closest person in a missing frame ----
         #np.argmin(dist)
@@ -518,7 +518,7 @@ def mix_right_left(df, index_list, factor = 3):
 
             # if first detection is missing, nothing can be done - continue until first detection found
             if zeros_filled[i-1, r,0]==0 or zeros_filled[i-1, l,0]==0:
-                print("first one 0", i, index)
+                # print("first one 0", i, index)
                 # print("zf i-1", zeros_filled[i-1, index].tolist(), "zf i", zeros_filled[i,index].tolist(), "df i-1",df[i-1,index].tolist() ,"df i", df[i,index].tolist())
                 continue
 
@@ -689,6 +689,43 @@ def to_json(play, events_dic, save_path, position = None, pitchtype = None, fram
     with open(save_path+".json", 'w') as outfile:
         json.dump(dic, outfile, indent=10)
 
+def color_and_save_image(ori_img, all_peaks, save_name):
+    for x in range(len(all_peaks)):
+        for j in range(len(all_peaks[x])):
+            cv2.circle(ori_img, (int(all_peaks[x,j,0]),int(all_peaks[x,j,1])) , 2, colors[x], thickness=-1)
+    cv2.imwrite(save_name, ori_img)
+
+def define_bbox(res, boundaries, min_width=30):
+    """
+    return bbox from last detection, extended by factor* boxwidth
+    box: [left bound, right bound, upper bound, lower bound]
+    input is ouput of pose estimation and boundaries of frame
+    """
+    joints_for_bbox = np.where(res[:,0]!=0)[0]
+    # takes minima and maxima of the pose as edges of bounding box b
+    bbox = np.array([np.min(res[joints_for_bbox, 0]), np.max(res[joints_for_bbox, 0]),
+           np.min(res[joints_for_bbox, 1]), np.max(res[joints_for_bbox, 1])]).astype(int)
+    # extends bounding box by adding the width of the box on all sides (up to boundaries)
+    width = max(0.5*(bbox[1]-bbox[0]), min_width)
+    for i in range(len(bbox)): # every second of the box must subtract the width
+        bbox[i]-=width
+        width*=(-1)
+        if (bbox[i]<boundaries[i] and width<0) or (bbox[i]>boundaries[i] and width>0):
+            bbox[i]=boundaries[i]
+    return bbox
+
+def save_inbetween(arr, fi, out_dir, events_dic):
+    """
+    takes intermediate result array arr and saves it with the video name fi, and the output directory out_dir
+    events_dic is a dictionary containing meta information
+    """
+    pitcher_array = np.array(arr)
+    print("shape pitcher_array", pitcher_array.shape)
+    # NEW: JSON FORMAT
+    game_id = fi[:-4]
+    file_path_pitcher = out_dir+game_id
+    print(events_dic, file_path_pitcher)
+    to_json(pitcher_array, events_dic, file_path_pitcher)
 
 ## OLD FUNCTIONS
 # def mix_right_left(df,index,player):

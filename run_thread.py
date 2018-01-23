@@ -56,7 +56,8 @@ class Runner(threading.Thread):
 
         nr_classes = len(self.unique)
         print("classes", self.unique)
-
+        # labels = labels_string
+        print("save path", self.SAVE)
         model = Model()
 
         M,N,nr_joints,nr_coordinates = self.data.shape
@@ -67,14 +68,15 @@ class Runner(threading.Thread):
         train_ind = ind[:SEP]
         test_ind = ind[SEP:]
 
-        self.data = Tools.normalize(self.data)
+        # self.data = Tools.normalize(self.data)
+
         labels = Tools.onehot_with_unique(self.labels_string, self.unique)
         ex_per_class = self.BATCH_SZ//nr_classes
         BATCHSIZE = nr_classes*ex_per_class
 
         train_x = self.data[train_ind]
-        me = np.mean(train_x)
-        std = np.std(train_x)
+        #me = np.mean(train_x)
+        #std = np.std(train_x)
         test_x = self.data[test_ind]
 
         #train_x = (train_x - me)/std
@@ -262,18 +264,21 @@ class Runner(threading.Thread):
                 print(labels_string_test[i], pitches_test[i])
         else:
         # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-            for i in range(len(labels_string_test)):
+            for i in range(30): #len(labels_string_test)):
                 print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
 
+        Tools.confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 
-        if self.files!=[]:
-            assert len(self.files)==len(self.labels_string)
-            assert len(test_ind)==len(labels_string_test)
-            for i in range(len(pitches_test)):
-                if pitches_test[i]!=labels_string_test[i]:
-                    print(self.files[test_ind[i]], "out", pitches_test[i], "true", labels_string_test[i])
+        return 0
+        # if self.files!=[]:
+        #     assert len(self.files)==len(self.labels_string)
+        print("Wrong ones:")
+        assert len(test_ind)==len(labels_string_test)
+        for i in range(len(pitches_test)):
+            if pitches_test[i]!=labels_string_test[i]:
+                print("out", pitches_test[i], "true", labels_string_test[i]) #self.files[test_ind[i]],
         pitches = np.append(pitches_test, pitches_train, axis = 0)
         labs = np.append(labels_string_test, labels_string_train, axis = 0)
         #print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))

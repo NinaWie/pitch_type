@@ -19,6 +19,8 @@ from data_preprocess import JsonProcessor
 
 from detect_event import first_move_batter_NN
 
+from sklearn.metrics import mean_squared_error
+
 
 """
 USAGE: Download training data from Google drive into train_data folder
@@ -50,6 +52,7 @@ def batter_testing(restore_path, data_path = "train_data/", output_path = "outpu
         print("predicted ", lab[l], "true", labels[l])
     print("mean of labels", np.mean(lab))
 
+    print("mean squared error:", mean_squared_error(lab, labels), np.sqrt(np.sum((np.asarray(lab)-np.asarray(labels))**2)/float(len(labels))))
     dic = {}
     assert(len(lab)==len(files))
     for i in range(len(files)):
@@ -64,7 +67,7 @@ def batter_training(save_path, shift = 20, data_path = "train_data/"):
     train neural network to find the first movement (first step of batter when he starts to run) in a sequence of frames
     save_path: path to save the trained model
     """
-    path = data_path+ "batter_runs/"
+    path = "/Volumes/Nina Backup/low_quality_testing/batter_runs/" #data_path+ "batter_runs/"
     joints_array_batter = []
     files = []
     labels = []
@@ -139,8 +142,7 @@ def batter_training(save_path, shift = 20, data_path = "train_data/"):
     # np.save("outputs/batter_first_data", data)
     # np.save("outputs/batter_first_label", label)
 
-
-    runner = Runner(np.array(data), label, SAVE = save_path, BATCH_SZ=40, EPOCHS = 500, batch_nr_in_epoch = 50,
+    runner = Runner(np.array(data), np.reshape(label, (-1,1)), SAVE = save_path, BATCH_SZ=40, EPOCHS = 500, batch_nr_in_epoch = 50,
             act = tf.nn.relu, rate_dropout = 0,
             learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
             first_conv_filters=12, first_conv_kernel=3, second_conv_filter=12,
