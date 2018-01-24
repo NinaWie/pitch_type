@@ -2,10 +2,7 @@
 
 Baseball analysis system
 
-[Modules for baseball analysis](assets/data_preprocessing.png)
-{#fig: data_preprocessing}
-
-![Modules for baseball analysis](assets/data_preprocessing.png)
+![Modules_baseball_analysis](assets/data_preprocessing.png)
 {#fig: data_preprocessing}
 
 ## 1. Player tracking:
