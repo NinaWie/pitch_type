@@ -2,8 +2,8 @@
 
 Baseball analysis system
 
-![Modules_baseball_analysis](assets/data_preprocessing.png)
-{#fig: data_preprocessing}
+![Modules_baseball_analysis](assets/data_processing.png)
+{#fig: data_processing}
 
 ## 1. Player tracking:
 * Instructions on running pose estimation, localization and smoothing in [pose estimation readme](Pose_Estimation/README.md)
