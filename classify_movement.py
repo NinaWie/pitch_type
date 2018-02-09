@@ -32,13 +32,18 @@ def testing(save_path, sequ_len = 100):
         print(files[i], labels[:,i].astype(str).tolist())
 
 def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30, position = None):
-    csv = pd.read_csv(csv_path)
-    if position is not None:
-        csv = csv[csv["Pitching Position (P)"]==position]
-    if label_name=="Pitch Type":
-        csv = csv[csv["Pitch Type"]!="Eephus"]
+    # csv = pd.read_csv(csv_path)
+    # if position is not None:
+    #     csv = csv[csv["Pitching Position (P)"]==position]
+    # if label_name=="Pitch Type":
+    #     csv = csv[csv["Pitch Type"]!="Eephus"]
+    #
+    # data, labels = get_data_from_csv(csv, label_name, min_length = sequ_len)
+    # np.save("data_test.npy", data)
+    # np.save("labels_test.npy", labels)
 
-    data, labels = get_data_from_csv(csv, label_name, min_length = sequ_len)
+    data = np.load("data_test.npy")
+    labels = np.load("labels_test.npy")
 
     # shift and flip
     # data_old, _ = Tools.shift_data(data, labels, shift_labels = False, max_shift=30)
@@ -48,12 +53,12 @@ def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_
     # print(data.shape, labels.shape)
 
     data = Tools.normalize(data)
-    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=40, EPOCHS = 500, batch_nr_in_epoch = 100,
+    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=40, EPOCHS = 10, batch_nr_in_epoch = 100,
             act = tf.nn.relu, rate_dropout = 0.4,
             learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
             first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
             second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
-            network = "conv1d_big") #conv1d_big")
+            network = "rnn") #conv1d_big")
     runner.start()
 
 if __name__ == "__main__":
@@ -64,12 +69,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train/test neural network for recognizing pitch type from joint trajectories')
     parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
     parser.add_argument('-label', default="Pitch Type", type=str, help='Pitch Type, Play Outcome or Pitching Position (P) possible so far')
-    parser.add_argument('-save_path', default="/scratch/nvw224/pitch_type/new_models/position", type=str, help='usually training to classify pitch type, but can also be used for pitching position (with the right model)')
+    parser.add_argument('save_path', default="/scratch/nvw224/pitch_type/new_models/position", type=str, help='usually training to classify pitch type, but can also be used for pitching position (with the right model)')
     parser.add_argument('-view', default="cf", type=str, help='either cf (center field) or sv (side view)')
     args = parser.parse_args()
 
     save = args.save_path
-    csv_path = "/scratch/nvw224/"
+    csv_path = "train_data/"#  "/scratch/nvw224/"
     print("training", args.training)
     # input_data_list = [[path_outputs+ "old_videos/cf/"]] # , [path_outputs+ "old_videos/sv/"]], [path_outputs+ "new_videos/cf/",
     # csv_list = [csv_path + "cf_data.csv"] #, csv_path + "csv_gameplay.csv", csv_path + "BOS_SV_metadata.csv"]

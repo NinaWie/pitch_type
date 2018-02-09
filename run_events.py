@@ -157,6 +157,15 @@ class Runner(threading.Thread):
                                                     self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=128)
             print(first_out)
             out, logits = model.RNN(first_out, nr_classes, self.n_hidden, self.nr_layers)
+        elif self.network == "split_train":
+            first_out, _ =  model.conv1stmove(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+                                                    self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=56)
+            shapes = first_out.get_shape().as_list()
+            ff = tf.reshape(first_out, (-1, shapes[1]*shapes[2]))
+            ff = tf.layers.dense(ff, self.first_hidden_dense, activation = self.act)
+            ff = tf.layers.dense(ff, self.second_hidden_dense, activation = self.act)
+            logits = tf.layers.dense(ff, nr_classes, activation = None, name = "ff3")
+            out = tf.nn.softmax(logits)
         else:
             print("ERROR, WRONG", self.network, "INPUT")
 

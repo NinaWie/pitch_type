@@ -7,7 +7,6 @@ import json
 from os import listdir
 import cv2
 import ast
-import json
 from run_events import Runner
 from test import test
 # import matplotlib.pylab as plt

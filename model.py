@@ -113,9 +113,9 @@ class Model:
 
     def RNN(self, x_in, nr_classes, n_hidden, nr_layers):
         shape = x_in.get_shape().as_list()
-        x = tf.reshape(x_in, (-1, shape[1], shape[2]*shape[3]))
+        x_in = tf.reshape(x_in, (-1, shape[1], shape[2]*shape[3]))
 
-        x = tf.unstack(x, shape[1], 1)
+        x = tf.unstack(x_in, shape[1], 1)
 
         def lstm_cell():
               return rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)
@@ -126,6 +126,20 @@ class Model:
         out_logits = tf.layers.dense(outputs[-1], nr_classes)   #tf.matmul(outputs[-1], weights['out']) + biases['out']
         out = tf.nn.softmax(out_logits)
         return out, out_logits
+
+    def only_conv(self, x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
+    second_conv_kernel, first_hidden_dense, second_hidden_dense):
+        with tf.variable_scope("convolution"):
+            shape = x.get_shape().as_list()
+            net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
+            if first_conv_filters!=0:
+                net = tf.layers.conv1d(net, filters=first_conv_filters, kernel_size=first_conv_kernel, activation=act, name="conv1")
+                # tf.summary.histogram("conv_1_layer", net)
+                net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+            if second_conv_filter!=0:
+                net = tf.layers.conv1d(net, filters=second_conv_filter, kernel_size=second_conv_kernel, activation = act, name="conv4")
+                net = tf.layers.dropout(net, rate=rate_dropout, training=training)
+        return net
 
 ### OLD MODELS:
 

@@ -235,7 +235,7 @@ def trajectory_and_speed(balls, im_t, t, fps = 30, plotting=True):
     trajectory = np.array([elem.center for elem in balls]).astype(int)
     # print("trajectory", trajectory.tolist())
     # distance
-    dist_from_start = distance_projected(trajectory[0], np.array(eval(cfg.pitcher_mound_coordinates)),np.array(eval(cfg.batter_base_coordinates)))
+    dist_from_start = distance_projected(trajectory[0], np.array(eval(cfg.pitcher_mound_coordinates)),np.array(eval(cfg.batter_base_coordinates))) # cfg ersetzen!!
     speed = np.mean([np.linalg.norm(trajectory[i]- trajectory[i+1]) for i in range(len(trajectory)-1)])
     frames_shifted = dist_from_start/speed + len(balls)-1 # frames because current frame is already after nth ball detection
     # print("frames from release frame (using distance from center of base projected)", frames_shifted)
@@ -250,7 +250,7 @@ def trajectory_and_speed(balls, im_t, t, fps = 30, plotting=True):
             img = cv2.line(img, tuple(trajectory[i]),tuple(trajectory[i+1]), color = 2)
         # img = cv2.line(img, tuple(trajectory[1]),tuple(trajectory[2]), color = 2)
         plt.imshow(img, 'gray')
-        plt.title("Ball trajectory at frame "+str(t)+ ", speed in mph: "+ str(speed*fps* 0.681818 /cfg.factor_pixel_feet))
+        plt.title("Ball trajectory at frame "+str(t)+ ", speed in mph: "+ str(speed*fps* 0.681818 /cfg.factor_pixel_feet))   # cfg ersetzen!!
         plt.show()
         # print("SPEED in mph", speed*fps* 0.681818 /factor_pixel_feet) # 1 ft/s = 0.681818 mph
         print("")

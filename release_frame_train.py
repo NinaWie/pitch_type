@@ -13,7 +13,7 @@ from test import test
 # import matplotlib.pylab as plt
 #from notebooks.code_to_json import from_json
 
-from data_preprocess import JsonProcessor
+from data_preprocess import JsonProcessor, get_data_from_csv
 from tools import Tools
 from test import test
 
@@ -44,22 +44,21 @@ def testing(save_path, sequ_len=100, start = 80):
         #print(log_transformed)
         return norm2(log_transformed)
 
-    with open("train_data/dic_release_high_quality.json", "r") as outfile:
+    with open("dic_release_high_quality.json", "r") as outfile:
         dic_release_high_quality = json.load(outfile)
 
     shift= [50, 60, 70]
-    number_possible_norms = 5
     prepro = JsonProcessor()
-    arr = np.zeros((len(shift), number_possible_norms))
-    stds = np.zeros((len(shift), number_possible_norms))
+    arr = np.zeros((len(shift), 5))
+    stds = np.zeros((len(shift), 5))
     for i, s in enumerate(shift):
         data, files = prepro.get_test_data(test_json_files, test_data_path, sequ_len, start, shift=s, labels=dic_release_high_quality)
-        for n in range(number_possible_norms):
+        for n in range(5):
             data_new = eval("norm"+str(n))(data)
             lab, out = test(data_new, save_path)
             arr[i,n] = (np.sum(np.absolute(np.array(lab)-s)))/float(len(lab))
             stds[i,n] = np.std(np.array(lab))
-    for x in range(number_possible_norms):
+    for x in range(5):
         print("mean error for norm ", x, np.mean(arr[:, x]))
         print("mean stds for norm ", x, np.mean(stds[:, x]))
     print(arr)
@@ -94,14 +93,19 @@ def training(save_path, sequ_len = 100, max_shift=30):
     sequ_len: for conv net, videos must be cut to a certain length
     max_shift: data is extended to make the model more generalizable (also works okay with high quality data)
     """
-    prepro = JsonProcessor()
-    data, plays = prepro.get_data([[path_outputs+"old_videos/cf/", path_outputs+"new_videos/cf/"], [path_outputs+"old_videos/sv/"]], sequ_len+2*max_shift)
-    label = prepro.get_label_release(plays, csv_path+"cf_data.csv", "pitch_frame_index", cut_off_min=70, cut_off_max=110)
-    inds = np.where(label==0)[0]
-    print(inds)
-    data = np.delete(data, inds, axis = 0)
-    label = np.delete(label, inds, axis=0)
-    print(data.shape, len(label), np.any(label==0))
+    csv = pd.read_csv("/Volumes/Nina Backup/cf_pitcher.csv")
+
+    data, label = get_data_from_csv(csv, "pitch_frame_index", min_length = sequ_len)
+    print(data.shape, len(label), min(label), max(label))
+
+    # prepro = JsonProcessor()
+    # data, plays = prepro.get_data([[path_outputs+"old_videos/cf/", path_outputs+"new_videos/cf/"], [path_outputs+"old_videos/sv/"]], sequ_len+2*max_shift)
+    # label = prepro.get_label_release(plays, csv_path+"cf_data.csv", "pitch_frame_index", cut_off_min=70, cut_off_max=110)
+    # inds = np.where(label==0)[0]
+    # print(inds)
+    # data = np.delete(data, inds, axis = 0)
+    # label = np.delete(label, inds, axis=0)
+    # print(data.shape, len(label), np.any(label==0))
 
     # EXTENDING
 
@@ -128,22 +132,24 @@ def training(save_path, sequ_len = 100, max_shift=30):
     print(data_new.shape)
 
     data = np.append(data_new, data_old, axis=0)
+    data = Tools.normalize(data)
     label = np.append(label, label)
     print(data.shape, len(label))
     # data = scipy.ndimage.filters.gaussian_filter1d(data, axis = 1, sigma = 1)
-    runner = Runner(data, np.reshape(label, (-1, 1)), SAVE = save_path, BATCH_SZ=40, EPOCHS = 1000, batch_nr_in_epoch = 50,
+    runner = Runner(data, np.reshape(label, (-1, 1)), SAVE = save_path, BATCH_SZ=40, EPOCHS = 10, batch_nr_in_epoch = 50,
             act = tf.nn.relu, rate_dropout = 0,
             learning_rate = 0.001, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
             first_conv_filters=56, first_conv_kernel=5, second_conv_filter=56,
             second_conv_kernel=3, first_hidden_dense=128, second_hidden_dense=56,
-            network = "rnn")
+            network = "split_train")
     runner.unique = [sequ_len]
     runner.start()
 
 path_outputs = "/scratch/nvw224/pitch_type/Pose_Estimation/outputs/"
 test_json_files = "/scratch/nvw224/pitch_type/Pose_Estimation/v0testing/"
 test_data_path = "/scratch/nvw224/pitch_type/Pose_Estimation/high_quality_testing/pitcher/"
-save =  "/scratch/nvw224/pitch_type/saved_models/release_frame_rnn"
+save = "saved_models/release_split_train"
+#  "/scratch/nvw224/pitch_type/saved_models/release_frame_rnn"
 csv_path = "/scratch/nvw224/"
 
 training(save, sequ_len=100)

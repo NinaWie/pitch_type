@@ -153,6 +153,21 @@ class Runner(threading.Thread):
                                                     self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense, out_filters=20)
             print(first_out)
             out, logits = model.RNN(first_out, nr_classes, self.n_hidden, self.nr_layers)
+        elif self.network == "split_train":
+
+            first_out =  model.only_conv(x, nr_classes, training, self.rate_dropout, self.act, self.first_conv_filters, self.first_conv_kernel, self.second_conv_filter,
+            self.second_conv_kernel, self.first_hidden_dense, self.second_hidden_dense)
+            print(first_out)
+            with tf.variable_scope("rnn"):
+                out, logits = model.RNN(first_out, nr_classes, self.n_hidden, self.nr_layers)
+
+            # shapes = first_out.get_shape().as_list()
+            # ff = tf.reshape(first_out, (-1, shapes[1]*shapes[2]))
+            # ff = tf.layers.dense(ff, self.first_hidden_dense, activation = self.act, name = "ff1")
+            # if self.second_hidden_dense!=0:
+            #     ff = tf.layers.dense(ff, self.second_hidden_dense, activation = self.act, name = "ff2")
+            # logits = tf.layers.dense(ff, nr_classes, activation = None, name = "ff3")
+            # out = tf.nn.softmax(logits)
         else:
             print("ERROR, WRONG", self.network, "INPUT")
 
@@ -176,7 +191,7 @@ class Runner(threading.Thread):
         # diff = tf.cast(max_out-max_lab, tf.float32)
         # loss = tf.reduce_mean(tf.square(diff))
 
-        optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss, var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='rnn'))
 
         # TENSORBOARD comment all in
         # tf.summary.scalar("loss_entropy", loss_entropy)
@@ -187,7 +202,17 @@ class Runner(threading.Thread):
         # merged = tf.summary.merge_all()
         # train_writer = tf.summary.FileWriter("./logs/nn_logs" + '/train', sess.graph)
 
+        def scope_variables(name):
+            with tf.variable_scope(name):
+                return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                               scope=tf.get_variable_scope().name)
+        # train_vars = scope_variables("convolution")
+        # print(train_vars)
+        # saver = tf.train.Saver(train_vars)
         saver = tf.train.Saver(tv)
+
+        #saver1 = tf.train.Saver(var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='convolution'))
+        #saver1.restore(sess, self.SAVE)
 
         #tf.summary.scalar("loss_entropy", loss_entropy)
         #tf.summary.scalar("loss_regularization", loss_regularization)
@@ -267,7 +292,7 @@ class Runner(threading.Thread):
             for i in range(30): #len(labels_string_test)):
                 print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
 
-        Tools.confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
+        Tools.confusion_matrix(np.asarray(pitches_test), np.asarray(labels_string_test)) # confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 

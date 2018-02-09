@@ -243,12 +243,25 @@ class Tools:
         for pitch in np.unique(labels):
             inds = np.where(labels==pitch)[0]
             outs_type = out[inds]
-
             frequ = stats.itemfreq(outs_type)
             values = np.asarray(frequ[:,1]).astype(int)
             dictionary = dict(zip(frequ[:,0], (values/float(np.sum(values))*100).astype(int)))
             sorted_dic = sorted(dictionary.items(), key=operator.itemgetter(1), reverse=True)
             print(pitch,"percentage predicted as", sorted_dic)
+
+    @staticmethod
+    def confusion_matrix(out,labels):
+        uni = np.unique(out) if len(np.unique(out))> len(np.unique(labels)) else np.unique(labels)
+        data = []
+        for i in uni:
+            inds = np.where(labels==i)[0]
+            outs_type = out[inds]
+            # print(i, [np.sum(outs_type==j) for j in uni])
+            data.append([np.sum(outs_type==j) for j in uni])
+        row_format ="{:>15}" * (len(uni) + 1)
+        print(row_format.format("", *uni))
+        for lab, row in zip(uni, data):
+            print(row_format.format(lab, *row))
 
 
     @staticmethod

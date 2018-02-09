@@ -5,6 +5,21 @@ Baseball analysis system
 ![Modules_baseball_analysis](assets/data_processing.png)
 {#fig: data_processing}
 
+## Dependencies:
+To create a temporary environment in anaconda:
+
+```bash
+$ conda env create -f environment.yml
+$ source activate baseball_analysis
+
+Otherwise see requirements.txt file (can be installed in anaconda by 
+
+$ conda install --yes --file requirements.txt
+
+or
+
+$ while read requirement; do conda install --yes $requirement; done < requirements.txt
+
 ## 1. Player tracking:
 * Instructions on running pose estimation, localization and smoothing in [pose estimation readme](Pose_Estimation/README.md)
 

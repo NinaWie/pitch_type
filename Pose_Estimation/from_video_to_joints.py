@@ -5,7 +5,7 @@ import pandas as pd
 from os.path import isfile, join
 from os import listdir
 import os
-import codecs, json
+import json
 import tensorflow as tf
 
 from Functions import *
