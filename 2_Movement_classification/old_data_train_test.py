@@ -7,6 +7,9 @@ from scipy import ndimage
 import json
 import argparse
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 #from sklearn.preprocessing import StandardScaler
 from data_preprocess import Preprocessor
 from tools import Tools

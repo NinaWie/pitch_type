@@ -9,10 +9,13 @@ import cv2
 import argparse
 import json
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 from run_thread import Runner
+
 from test import test
 from data_preprocess import JsonProcessor, get_data_from_csv, cut_csv_to_pitchers
-from utils.tools import Tools
+from tools import Tools
 
 def testing(save_path, sequ_len = 100):
     with open("dic_release_high_quality.json", "r") as outfile:
@@ -32,7 +35,8 @@ def testing(save_path, sequ_len = 100):
         print(files[i], labels[:,i].astype(str).tolist())
 
 
-def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30, position = None):
+def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30,
+position = None, five_players=False, superclasses=False):
     csv = pd.read_csv(csv_path)
     if position is not None:
         csv = csv[csv["Pitching Position (P)"]==position]
@@ -40,7 +44,8 @@ def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_
     if label_name=="Pitch Type":
         csv = csv[csv["Pitch Type"]!="Eephus"]
 
-    # csv = cut_csv_to_pitchers(csv)
+    if five_players:
+        csv = cut_csv_to_pitchers(csv)
 
     try:
         print(np.unique(csv["Pitching Position (P)"].values), np.unique(csv["Pitcher"].values))
@@ -66,7 +71,9 @@ def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_
 
     # data = np.load("data_test.npy")
     # labels = np.load("labels_test.npy")
-    # labels = Tools.labels_to_classes(labels)
+
+    if superclasses:
+        labels = Tools.labels_to_classes(labels)
 
     # shift and flip
     # data_old, _ = Tools.shift_data(data, labels, shift_labels = False, max_shift=30)

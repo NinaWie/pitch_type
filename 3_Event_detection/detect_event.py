@@ -7,6 +7,10 @@ import json
 from os import listdir
 import cv2
 import ast
+
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 from run_events import Runner
 from test import test
 # import matplotlib.pylab as plt

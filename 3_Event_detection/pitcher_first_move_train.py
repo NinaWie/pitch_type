@@ -4,6 +4,9 @@ import tensorflow as tf
 import scipy as sp
 import scipy.stats
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 from tools import Tools
 from model import Model
 import tflearn

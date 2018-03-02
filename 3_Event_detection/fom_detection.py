@@ -7,6 +7,9 @@ import time
 import json
 import argparse
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 from config import cfg
 
 class Node():

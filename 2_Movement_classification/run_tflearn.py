@@ -6,6 +6,9 @@ import scipy as sp
 import scipy.stats
 import threading
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+
 from tools import Tools
 # from model import Model
 

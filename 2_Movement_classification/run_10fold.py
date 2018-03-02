@@ -6,6 +6,8 @@ import scipy.stats
 import threading
 import json
 
+import sys
+sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 #from sklearn.preprocessing import StandardScaler
 #from self.data_preprocess import Preprocessor
 from tools import Tools
