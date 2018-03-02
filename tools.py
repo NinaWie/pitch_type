@@ -41,8 +41,10 @@ class Tools:
     @staticmethod
     def labels_to_classes(labels):
         print(labels[:20])
-        classes = {"Fastball (4-seam)":"Fastball", "Fastball (2-seam)": "Fastball", 'Fastball (Cut)': "Fastball", 'Fastball (Split-finger)': "Fastball", "Sinker": "Fastball",
-        'Curveball': "Breaking Ball", "Slider": "Breaking Ball", 'Knuckle curve':"Breaking Ball", 'Knuckleball': "Breaking Ball", "Changeup": "Changeup"}
+        #classes = {"Fastball (4-seam)":"Fastball", "Fastball (2-seam)": "Fastball", 'Fastball (Cut)': "Fastball", 'Fastball (Split-finger)': "Fastball", "Sinker": "Fastball",
+        #'Curveball': "Breaking Ball", "Slider": "Breaking Ball", 'Knuckle curve':"Breaking Ball", 'Knuckleball': "Breaking Ball", "Changeup": "Changeup"}
+        classes = {"Fastball (4-seam)":"Fastball", "Fastball (2-seam)": "Fastball", 'Fastball (Cut)': "Fastball", 'Fastball (Split-finger)': "Fastball", "Sinker": "Sinker",
+        'Curveball': "Change_curve", "Slider": "Slider", 'Knuckle curve':"Knuckle curve", 'Knuckleball': "Knuckleball", "Changeup": "Change_curve"}
         for uni in np.unique(labels):
             labels[labels==uni] = classes[uni]
         print(labels[:20])

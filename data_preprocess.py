@@ -23,6 +23,27 @@ def get_data_from_csv(cf, label, min_length=160):
     print(data.shape, labels.shape, unique)
     return data, labels
 
+def cut_csv_to_pitchers(cf):
+    def get_list_with_most(cf, column):
+        pitcher = cf[column].values #.astype(int)
+        statistic = sp.stats.itemfreq(pitcher) #.sort(axis = 0)
+        #if column == "Pitch Type":
+        #    print(statistic)
+        number = np.array(statistic[:,1])
+        a = b = []
+        for i in range(5):
+            maxi = np.argmax(number)
+            a.append(statistic[maxi,0])
+            number[maxi]=0
+        return a, statistic
+
+    player, _ = get_list_with_most(cf, "Pitcher")
+    print(player)
+    ind = []
+    for p in player:
+        ind += (np.where(cf["Pitcher"].values==p)[0]).tolist()
+    return cf.iloc[ind]
+
 class JsonProcessor:
     #def __init__(self):
 

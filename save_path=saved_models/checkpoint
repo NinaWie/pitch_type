@@ -1,2 +1,0 @@
-model_checkpoint_path: "release_split_train"
-all_model_checkpoint_paths: "release_split_train"

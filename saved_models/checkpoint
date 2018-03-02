@@ -1,2 +1,2 @@
-model_checkpoint_path: "release_split_train"
-all_model_checkpoint_paths: "release_split_train"
+model_checkpoint_path: "validation_test"
+all_model_checkpoint_paths: "validation_test"

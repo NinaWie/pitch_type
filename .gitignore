@@ -1,9 +1,9 @@
-cf_data.csv
-sv_data.csv
-cf_data_cut.csv
-sv_data_cut.csv
+outputs
+notebooks_data
+old_versions
+saved_models
 *.csv
-Pose_Estimation/model/pose_model.pth
+1_Pose_Estimation/model/pose_model.pth
 logs
 *.DS_Store
 *.pyc
@@ -11,6 +11,3 @@ logs
 __pycache__
 Pose_Estimation/atl
 *.npy
-*.json
-*.mp4
-*.m4v

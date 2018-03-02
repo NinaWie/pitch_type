@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from tools import Tools
+import time
 
 def test(data, restore_file):
     """
@@ -21,8 +22,11 @@ def test(data, restore_file):
     saver.restore(sess, restore_file)
     out = tf.get_collection("out")[0]
     unique = tf.get_collection("unique")[0]
+    tic = time.time()
     out_test = sess.run(out, {"input:0":  data, "training:0": False})
     # Evaluation
+    toc = time.time()
+    print("time for nr labels", toc-tic)
     pitches_test = Tools.decode_one_hot(out_test,  unique.eval(session = sess))
     try:
         pitches = [elem.decode("utf-8") for elem in pitches_test]
@@ -31,3 +35,17 @@ def test(data, restore_file):
 
     sess.close()
     return pitches, out_test
+
+if __name__ == "__main__":
+    data = np.load("data_test.npy")
+    labels = np.load("labels_test.npy")
+    data = Tools.normalize(data)
+    print(data.shape, labels.shape, np.mean(data))
+    # tic = time.time()
+    labs, out = test(data, "saved_models/validation_test")
+    # toc = time.time()
+    # print("time for nr labels", len(labs), toc-tic)
+    print(Tools.accuracy(np.asarray(labs), labels))
+    print(Tools.balanced_accuracy(np.asarray(labs), labels))
+    for i in range(len(labels)): #len(labels_string_test)):
+        print('{:20}'.format(labels[i]), '{:20}'.format(labs[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
