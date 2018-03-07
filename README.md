@@ -9,17 +9,18 @@ Baseball analysis system
 To create a temporary environment in anaconda:
 
 ```bash
-$ conda env create -f environment.yml
-$ source activate baseball_analysis
-
+conda env create -f environment.yml
+source activate baseball_analysis
+```
 Otherwise see requirements.txt file (can be installed in anaconda by 
 
-$ conda install --yes --file requirements.txt
-
+```bash
+conda install --yes --file requirements.txt
+```
 or
-
-$ while read requirement; do conda install --yes requirement; done < requirements.txt
-
+```bash
+while read requirement; do conda install --yes requirement; done < requirements.txt
+```
 
 ## For all parts of the paper, see the corresponding folder (Event detection, Pose estimation, etc.)
 
