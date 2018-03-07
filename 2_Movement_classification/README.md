@@ -35,7 +35,10 @@ Note:
 * To reduce the number of classes for the pitch type (3 superclasses) or to reduce the number of players, change parameters in the training function in classify_movement.py.
 * Testing functions in the train files refer to testing on specific data, e.g. high quality videos to check for visualization - for own data please use testing functions from 2)
 * change hyperparameters in [config](config.py)
-
+* [run detect events](run_events.py) and [run classify movement](run_thread.py) are classes to train a model in tensorflow - used by all train files - input is just data, labels, hyperparameters and a selection which model should be used
 
 ## Testing
 * Use [test file](test.py) with approriate model from [models](saved_models) and your input data
+
+## Other folders/files:
+* old_data_train_test: Old data before smoothing and new localization (from Estelle's cf_data.csv and sv_data.csv files) --> training and testing is still possible, change hyperparameters in [config](config.py)

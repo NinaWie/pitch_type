@@ -12,6 +12,7 @@ import json
 import sys
 sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 from run_thread import Runner
+from config import cfg
 
 from test import test
 from data_preprocess import JsonProcessor, get_data_from_csv, cut_csv_to_pitchers
@@ -54,20 +55,6 @@ position = None, five_players=False, superclasses=False):
     data, labels = get_data_from_csv(csv, label_name, min_length = sequ_len)
 
     print(data.shape)
-    M,N,nr_joints,nr_coordinates = data.shape
-    SEP = int(M*0.9)
-    # print("Test set size: ", len_test, " train set size: ", len_train)
-    # print("Shapes of train_x", train_x.shape, "shape of test_x", test_x.shape)
-    ind = np.random.permutation(len(data))
-    train_ind = ind[:SEP]
-    test_ind = ind[SEP:]
-    data_part = data[test_ind]
-    labels_part = labels[test_ind]
-    train_data = data[train_ind]
-    train_labels = labels[train_ind]
-    print("for validation data", data_part.shape, train_data.shape, labels_part.shape, train_labels.shape)
-    np.save("data_test.npy", data_part)
-    np.save("labels_test.npy", labels_part)
 
     # data = np.load("data_test.npy")
     # labels = np.load("labels_test.npy")
@@ -83,11 +70,11 @@ position = None, five_players=False, superclasses=False):
     # print(data.shape, labels.shape)
 
     train_data = Tools.normalize(train_data)
-    runner = Runner(train_data, train_labels, SAVE = save_path, BATCH_SZ=40, EPOCHS = 20, batch_nr_in_epoch = 100,
-            act = tf.nn.relu, rate_dropout = 0.4,
-            learning_rate = 0.0005, nr_layers = 4, n_hidden = 128, optimizer_type="adam", regularization=0,
-            first_conv_filters=128, first_conv_kernel=5, second_conv_filter=128,
-            second_conv_kernel=9, first_hidden_dense=128, second_hidden_dense=0,
+    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = 20, batch_nr_in_epoch = cfg.batches_per_epoch,
+            act = tf.nn.relu, rate_dropout =  cfg.dropout,
+            learning_rate = cfg.learning_rate, nr_layers = cfg.layers_lstm, n_hidden = cfg.hidden_lstm, optimizer_type="adam",
+            first_conv_filters=cfg.first_filters, first_conv_kernel=cfg.first_kernel, second_conv_filter=cfg.second_conv_filter,
+            second_conv_kernel=cfg.second_conv_kernel, first_hidden_dense=cfg.first_hidden_dense, second_hidden_dense=cfg.second_hidden_dense,
             network = "adjustable conv1d") #conv1d_big")
     runner.start()
 
@@ -120,6 +107,24 @@ if __name__ == "__main__":
         training(save, csv, label_name = args.label) #, position="Stretch")
     else:
         testing(save)
+
+
+## to save parts of the data for testing:
+
+# M,N,nr_joints,nr_coordinates = data.shape
+# SEP = int(M*0.9)
+# print("Test set size: ", len_test, " train set size: ", len_train)
+# print("Shapes of train_x", train_x.shape, "shape of test_x", test_x.shape)
+# ind = np.random.permutation(len(data))
+# train_ind = ind[:SEP]
+# test_ind = ind[SEP:]
+# data_part = data[test_ind]
+# labels_part = labels[test_ind]
+# train_data = data[train_ind]
+# train_labels = labels[train_ind]
+# print("for validation data", data_part.shape, train_data.shape, labels_part.shape, train_labels.shape)
+#np.save("data_test.npy", data_part)
+#np.save("labels_test.npy", labels_part)
 
 ### TO USE JSON FILES WITH JsonProcessor
 

@@ -7,14 +7,6 @@ flags = tf.app.flags
 #    hyper parameters      #
 ############################
 
-# OLD DATA TRAIN TEST
-flags.DEFINE_boolean('head_out', True, 'true if only lower and upper body, but not the head, should be used')
-flags.DEFINE_boolean('align', False, 'align frames by release frame')
-flags.DEFINE_string('filter_position', " ", 'set to windup if only windup pitches shall be included, stretch if only stretch')
-flags.DEFINE_string('data_path', "train_data/cf_data.csv", 'path for arrays and labels in one csv file')
-flags.DEFINE_boolean('superclasses', False, 'if classes should be sorted in superclasses Fastball, Breaking ball and Changup')
-flags.DEFINE_integer('min_class_members', 10, 'classes with less than x data examples are excluded')
-
 # FMO detection
 flags.DEFINE_float('metric_thresh', 0.5, 'threshold below which slopes and distance metric is classified a ball trajectory')
 flags.DEFINE_integer('min_dist', 10, 'minimum distance (in pixel) a fast moving object must have travelled to be added to graph')

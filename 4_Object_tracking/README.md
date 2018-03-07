@@ -13,4 +13,3 @@ Running this on the videos from the database above, I saved the ball trajectorie
 faster R-CNN is run separately, with the code from [here](https://github.com/rbgirshick/py-faster-rcnn)
 
 faster R-CNN and everything else can be found in the jupyter notebook on bat tracking. As data we use the high quality videos, for which I saved the joint trajectories in json files on Google Drive [download](https://drive.google.com/drive/folders/1eD2ElaV43lkqEGQNd6EGUt8rPV6TKN9B?usp=sharing)
-
