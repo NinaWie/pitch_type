@@ -24,9 +24,10 @@ optional arguments:
 
 Examples:
 
-$ python classify_movement.py models/pitch_type_model -label="Pitch Type" -view="cf"
-$ python classify_movement.py models/position_model -label="Pitching Position (P)" -view="sv"
-
+```bash
+python classify_movement.py models/pitch_type_model -label="Pitch Type" -view="cf"
+python classify_movement.py models/position_model -label="Pitching Position (P)" -view="sv"
+```
 This will train the network for the number of epochs specified in the file. 
 
 Note:
