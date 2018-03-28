@@ -25,8 +25,10 @@ from test import test
 parser = argparse.ArgumentParser(description='Pose Estimation Baseball')
 parser.add_argument('input_file', metavar='DIR', # Video file to be processed
                     help='folder where merge.csv are')
-parser.add_argument('output_folder', metavar='DIR', # Video file to be processed
+parser.add_argument('output_folder', metavar='DIR', # output dir
                     help='folder where merge.csv are')
+parser.add_argument('center',  #
+                    help='specify what kind of file is used for specifying the center of the target person: either path_to_json_dictionary.json, or datPitcher, or datBatter')
 restore_first_move = "/scratch/nvw224/pitch_type/saved_models/first_move_more"
 restore_release = "/scratch/nvw224/pitch_type/saved_models/release_model"
 restore_position = "/scratch/nvw224/pitch_type/saved_models/modelPosition"
@@ -51,11 +53,12 @@ if not os.path.exists(out_dir):
 # csv = pd.read_csv("/scratch/nvw224/csv_gameplay.csv", delimiter=";")
 # outcomes = csv["Play Outcome"].values
 # files = csv["play_id"].values.tolist()
+if args.center[-5:] == ".json":
+    with open(args.center, "r") as infile:
+        centers = json.load(infile)
 
-with open("center_dics.json", "r") as infile:
-    centers = json.load(infile)
 
-for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
+for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
 # ['5093fe5c-28d7-4229-9c3f-d1ccb6d12f71', 'a72a6e17-1644-44e8-9844-1ec65c89ebc5', '68206417-6071-4560-b035-e44bbbec3bab', '495dbb44-facf-4c33-adce-c859631c8a43', '4e773e7b-ccbe-445e-aec3-fde4397fbfea', '842244eb-a21a-4ee8-bb40-28ee3bcd73b9']:
 # ['847aeac1-54cd-4ab2-923b-f65189ac7655', 'da6888ec-4216-4835-8960-1557ac30802b', '1b1bf2f3-bdea-417a-aee0-07d2a01a9ce7', 'd86799fd-c93b-44e2-9d9d-da7bfd8f962f', '3af5ba29-535a-4050-9aec-e1687bd47c99', 'c82635e1-ad3c-40de-976e-7d50808b4b51']:
     # fi = fi_without+".mp4"
@@ -74,19 +77,32 @@ for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
     #     print("not in csv")
     #     continue
 
-    # try:
-    #     for i in open(inp_dir+fi+".dat").readlines():
-    #         datContent=ast.literal_eval(i)
-    # except IOError:
-    #     print("dat file not found", fi)
-    #     continue
-    # bottom_b=datContent['Pitcher']['bottom']
-    # left_b=datContent['Pitcher']['left']
-    # right_b=datContent['Pitcher']['right']
-    # top_b=datContent['Pitcher']['top']
-    # print(bottom_b, left_b, right_b, top_b)
-    center = centers[fi] # np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
-
+    if args.center[:3] == "dat":
+        target = args.center[3:]
+        try:
+            for i in open(inp_dir+fi+".dat").readlines():
+                datContent=ast.literal_eval(i)
+        except IOError:
+            print("dat file exists:", os.path.exists(inp_dir+fi+".dat"))
+            print("dat file not found", fi)
+            continue
+        bottom_b=datContent[target]['bottom']
+        left_b=datContent[target]['left']
+        right_b=datContent[target]['right']
+        top_b=datContent[target]['top']
+        print(bottom_b, left_b, right_b, top_b)
+	    center = np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
+    elif args.center[-5:] == ".json":
+        try:
+            center = centers[fi[:-4]] # np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
+        except KeyError:
+            print("file does not exist in json file with center points")
+            continue
+        left_b = 0 # change for batters first move
+        top_b = 0
+    else:
+        print("wrong input for center argument: must be either the file path of a json file containing a dictionary, or datPitcher or datBatter")
+        continue
     ##############
 
     j=0
@@ -118,14 +134,17 @@ for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
     pitcher_array = []
 
     #### for batter first
-    videos = []
+    # videos = []
 
 
     # Not found until there is a frame with a person detected
     while not found:
         #len(df[player][i])==0:
         ret, frame = video_capture.read()
-        out = handle_one(frame) #[top_b:bottom_b, left_b:right_b]) # changed batter first move
+        if args.center[-5:] == ".json":
+            bottom_b = len(frame)
+            right_b = len(frame[0])
+        out = handle_one(frame[top_b:bottom_b, left_b:right_b]) # changed batter first move
         for person in range(len(out)):
             hips=np.asarray(out[person])[indices]
             hips=hips[np.sum(hips,axis=1)!=0]
@@ -142,8 +161,6 @@ for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
             pitcher_array.append([[0,0] for j in range(18)])
             print("no person detected in frame", p)
 
-    left_b = 0 # change for batters first move
-    top_b = 0
     first_frame = np.array(out[loc])
     first_frame[:,0]+=left_b
     first_frame[first_frame[:,0]==left_b] = 0 # if the output was 0 (missing value), reverse box addition
@@ -179,7 +196,7 @@ for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
         pitcher = frame[bbox[2]:bbox[3], bbox[0]:bbox[1]]
 
         ### for batter first_
-        videos.append(np.mean(pitcher, axis = 2).tolist())
+        # videos.append(np.mean(pitcher, axis = 2).tolist())
 
         # pose estimation network
         out = handle_one(pitcher)
@@ -232,8 +249,8 @@ for fi in inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
     to_json(pitcher_array, events_dic, file_path_pitcher)
 
     ### batter first move
-    with open(out_dir+game_id+"_video.json", "w") as outfile:
-         json.dump(videos, outfile)
+    # with open(out_dir+game_id+"_video.json", "w") as outfile:
+    #      json.dump(videos, outfile)
 
     toctoc=time.time()
     print("Time for whole video to array: ", toctoc-tic)
