@@ -12,6 +12,13 @@ sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 
 from config import cfg
 
+def get_slope(center1, center2):
+    y_diff = (center1[1]-center2[1])
+    slope = np.arctan(y_diff/(center1[0]-center2[0]))
+    if y_diff < 0:
+        slope+= np.pi
+    return slope
+
 class Node():
     def __init__(self, x1, y1, x2, y2):
         self.bbox = [x1, y1, x2, y2]
@@ -27,14 +34,10 @@ class Node():
         self.dist = []
     def add_child(self, no):
         dist = np.linalg.norm(no.center-self.center)
-        if dist>cfg.min_dist:
+        if dist>10:
             self.children.append(no)
             self.area_diffs.append(abs(1-(no.area/self.area)))
-            y_diff = (self.center[1]-no.center[1])
-            slope = np.arctan(y_diff/(self.center[0]-no.center[0]))
-            if y_diff<0:
-                slope+=np.pi
-            self.slopes.append(slope)
+            self.slopes.append(get_slope(self.center, no.center))
             self.dist.append(dist)
             self.angle_diffs.append(abs(self.angle-no.angle))
     def favourite_child(self, no):
@@ -224,6 +227,35 @@ def _get_max_array(array_list):
     for array in array_list:
         resultant_array = np.maximum(resultant_array, array)
     return resultant_array
+
+
+def release_frame(balls, t, images=None):
+    trajectory = np.array([elem.center for elem in balls]).astype(int)
+    nr_balls = len(trajectory)
+    dist_from_start = distance_projected(trajectory[0], np.array([110, 140]),np.array([690, 288]))
+    speed = np.mean([np.linalg.norm(trajectory[i]- trajectory[i+1]) for i in range(nr_balls-1)])
+    frames_shifted = int(round(dist_from_start/speed + len(balls)-1)) # frames because current frame is already after nth ball detection
+    # print(dist_from_start, speed, frames_shifted)
+    ball_release = t - frames_shifted
+    if images is None:
+        return ball_release
+
+    plt.figure(figsize=(10,5))
+    if frames_shifted >10:
+        print("ATTENTION: image does not correspond to release frame, but to", frames_shifted-10,
+              "frames after release frame - image was not saved in buffer anymore")
+        frames_shifted = 10
+    # box = np.array(balls[0].bbox) - 80
+    img = images[-frames_shifted]# [80:180,80:200]
+    #img = np.tile(np.expand_dims(im_t.copy(), axis = 2), (1,1,3))
+    #cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]),[255,0,0], 1)
+    plt.imshow(img)
+    plt.title("release frame" +str(ball_release))
+    plt.gray()
+    plt.axis("off")
+    plt.show()
+        # plt.savefig("/Users/ninawiedemann/Desktop/BA/release_frame evaluation/"+str(ball_release))
+    return ball_release
 
 def trajectory_and_speed(balls, im_t, t, fps = 30, plotting=True):
     """

@@ -7,28 +7,33 @@ import json
 from os import listdir
 import cv2
 import ast
+import argparse
 
 import sys
 sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 
 from run_thread import Runner
 from test import test
-from video_to_pitchtype_directly import VideoProcessor
+from array_from_videos import VideoProcessor
 
 
 def get_test_data(input_dir, f):
     process = VideoProcessor(path_input=path_input, df_path = cf_data_path)
     label = process.get_labels(f, "pitch_frame_index")
+    print(input_dir, f, label)
     if label is not None:
-        data = process.get_pitcher_array(input_dir, f)
-        return data[cut_off_min:cut_off_max], label-cut_off_min
+        data = process.get_pitcher_array(input_dir+f)
+        return data[:160], label#[cut_off_min:cut_off_max], label-cut_off_min
     else:
         return None, None
 
 def testing(test_dates, restore_path):
-    output = []
-    labels = []
-    for date in test_dates[1:]:
+    results = []
+    final_labels = []
+    each_frame = []
+    for date in test_dates:
+        output = []
+        labels = []
         input_dir= path_input+"/"+date+"/center field/"
         list_files = listdir(input_dir)
         print(date)
@@ -40,26 +45,49 @@ def testing(test_dates, restore_path):
                 for elem in data:
                     output.append(elem)
                 labels.append(label)
-                #break
+                final_labels.append(label)
+                # break
   #      break
-    output = np.array(output)
-    labels = np.array(labels)
-    examples, width, height = output.shape
-    data = np.reshape(output, (examples, width, height, 1))
-    print(data.shape, len(data)/30, len(labels), labels)
-    lab, out = test(data, restore_path)
+        leng = 160
+        output = np.array(output)
+        labels = np.array(labels)
+        examples, width, height = output.shape
+        data = np.reshape(output, (examples, width, height, 1))
+        print(data.shape, len(data)/leng, len(labels), labels)
+        lab, out = test(data, restore_path)
 
-    right = 0
-    for i in range(len(data)/30):
-        print("real label:", labels[i])
-        print([round(elem,2) for elem in out[30*i:30*(i+1), 1]])
-        highest = np.argmax(out[30*i:30*(i+1), 1])
-        print("frame index predicted: ", highest)
-        if abs(labels[i]-highest)<2:
-            right+=1
-    print("Accuracy (only 1 frame later or earlier): ", right/float(len(data)/30))
-        #np.save("predicted_frame", data[highest])
-        #np.save("all_frames", data)
+        #right=0
+        for i in range(int(len(data)/leng)):
+            each_frame.append([round(elem,2) for elem in out[leng*i:leng*(i+1), 1]])
+            highest = np.argmax(out[leng*i:leng*(i+1), 1])
+            print("real label:", labels[i], "frame index predicted: ", highest)
+            # print()
+            #if abs(labels[i]-highest)<2:
+            #    right+=1
+            results.append(highest)
+        print("----------------------------")
+        print("finished processing for date", date, "now results:", results)
+        np.save("each_frame_release_from_images", np.array(each_frame))
+        np.save("results_release_from_images", np.array(results))
+        np.save("labels_release_from_images", np.array(final_labels))
+        print("saved intermediate", len(results), len(final_labels))
+    #
+    # for i in range(int(len(data)/30)):
+    #     print("real label:", labels[i])
+    #     print([round(elem,2) for elem in out[30*i:30*(i+1), 1]])
+    #     highest = np.argmax(out[30*i:30*(i+1), 1])
+    #     print("frame index predicted: ", highest)
+    #     if abs(labels[i]-highest)<2:
+    #         right+=1
+    #     results.append(highest)
+
+    # print(results)
+    # np.save("results_release_from_images", np.array(results))
+    # np.save("labels_release_from_images", np.array(labels))
+    # print("Accuracy (only 1 frame later or earlier): ", right/float(len(data)/leng))
+
+    #np.save("predicted_frame", data[highest])
+    #np.save("all_frames", data)
 
 def testing_singlevideo(input_dir, f, restore_path):
     data, label = get_test_data(input_dir, f)
@@ -126,6 +154,11 @@ def training(dates, save_path):
 path_input = "/scratch/nvw224/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
 path_output = "/scratch/nvw224/arrays/" # TRAINING DATA: must be saved as array first, use class VideoProcessor in array_from_videos.py
 cf_data_path = "/scratch/nvw224/cf_data.csv" # Statcast labels, download from google drive
+
+# path_input = "/Volumes/Nina Backup/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
+# path_output = "/scratch/nvw224/arrays/" # TRAINING DATA: must be saved as array first, use class VideoProcessor in array_from_videos.py
+# cf_data_path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/train_data/cf_data.csv"
+
 cut_off_min = 80 # lowest possible release frame
 cut_off_max= 110 # highest possible release frame (in old videos, sometimes release frame label was >1000)
 
@@ -133,10 +166,10 @@ dates = ["2017-04-15", "2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "
  "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17", "2017-04-14", "2017-04-18",
   "2017-05-02", "2017-05-06", "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16"]
 
-test_dates = ['2017-06-08', '2017-06-17', '2017-05-21', '2017-06-21', '2017-07-19', '2017-06-09', '2017-07-15', '2017-05-01',
- '2017-06-16', '2017-04-16', '2017-05-05', '2017-04-20', '2017-05-18', '2017-06-24', '2017-06-20', '2017-05-25',
-  '2017-05-17', '2017-05-04', '2017-06-05', '2017-06-06', '2017-04-17', '2017-05-22', '2017-07-18', '2017-07-14']
-
+test_dates = ['2017-07-19', '2017-06-09', '2017-07-15', '2017-05-01']
+ #'2017-06-16', '2017-04-16', '2017-05-05', '2017-04-20', '2017-05-18', '2017-06-24', '2017-06-20', '2017-05-25',
+ # '2017-05-17', '2017-05-04', '2017-06-05', '2017-06-06', '2017-04-17', '2017-05-22', '2017-07-18', '2017-07-14','2017-06-08']
+# ERLEDIGT: '2017-06-17', '2017-05-21', '2017-06-21'
 
 if __name__ == "__main__":
     def boolean_string(s):
@@ -154,4 +187,5 @@ if __name__ == "__main__":
     if train:
         training(dates, save_path)
     else:
+        print("testing")
         testing(test_dates, save_path)

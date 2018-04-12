@@ -8,7 +8,7 @@ This folder is only the last stage of the processing pipeline from videos to mot
 * Download the files and store them in the train_data folder
 * Then the classify_movement file [here](classify_movement.py) can be be executed. It uses [this](run_thread.py) file for building a tensor flow graph and training. Tasks can be specified as arguments. For usage (arguments) type 
 
-Usage:classify_movement.py [-h] [-training TRAINING] [-label LABEL]
+Usage: classify_movement.py [-h] [-training TRAINING] [-label LABEL]
                             [-view VIEW]
                             save_path
 
@@ -32,14 +32,14 @@ This will train the network for the number of epochs specified in the file.
 
 Note:
 
-* To train in 10 fold cross validation, change line 12 in the classify movement file to "from run_10fold import Runner" instead of "from run_thread import Runner"
-* To reduce the number of classes for the pitch type (3 superclasses) or to reduce the number of players, change parameters in the training function in classify_movement.py.
-* Testing functions in the train files refer to testing on specific data, e.g. high quality videos to check for visualization - for own data please use testing functions from 2)
+* To train in 10 fold cross validation, change line 13 in the classify movement file to "from run_10fold import Runner" instead of "from run_thread import Runner"
+
+Config File:
 * change hyperparameters in [config](config.py)
-* [run detect events](run_events.py) and [run classify movement](run_thread.py) are classes to train a model in tensorflow - used by all train files - input is just data, labels, hyperparameters and a selection which model should be used
+* To reduce the number of classes for the pitch type (3 superclasses) or to reduce the number of players, change parameters in the config file.
 
 ## Testing
-* Use [test file](test.py) with approriate model from [models](saved_models) and your input data
+* Use [test file](test.py) with approriate model from [models](saved_models) in main folder with your input data
 
 ## Other folders/files:
 * old_data_train_test: Old data before smoothing and new localization (from Estelle's cf_data.csv and sv_data.csv files) --> training and testing is still possible, change hyperparameters in [config](config.py)

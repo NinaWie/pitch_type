@@ -4,52 +4,37 @@ import tensorflow as tf
 import scipy as sp
 import scipy.stats
 import json
+import os
 from os import listdir
 import cv2
 import argparse
 import json
 
-import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
 from run_thread import Runner
 from config import cfg
+import sys
+sys.path.append(cfg.main_directory)
 
 from test import test
 from data_preprocess import JsonProcessor, get_data_from_csv, cut_csv_to_pitchers
-from tools import Tools
+from utils import Tools
 
-def testing(save_path, sequ_len = 100):
-    with open("dic_release_high_quality.json", "r") as outfile:
-        dic_release_high_quality = json.load(outfile)
-    test_json_files = "/scratch/nvw224/pitch_type/Pose_Estimation/v0testing/"
-    test_data_path = "/scratch/nvw224/pitch_type/Pose_Estimation/high_quality_testing/pitcher/"
-    prepro = JsonProcessor()
-    labels = []
-    for s in [50,60,70]:
-        # print("----shift:", s, "-----------")
-        data, files = prepro.get_test_data(test_json_files, test_data_path, sequ_len, 0, shift=s, labels=dic_release_high_quality)
-        data = Tools.normalize(data)
-        lab, out = test(data, save_path)
-        labels.append(lab)
-    labels = np.array(labels)
-    for i in range(len(lab)):
-        print(files[i], labels[:,i].astype(str).tolist())
-
-
-def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30,
-position = None, five_players=False, superclasses=False):
+def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30):
     csv = pd.read_csv(csv_path)
-    if position is not None:
+    if len(cfg.position) > 0:
+        assert cfg.position=="Windup" or cfg.position=="Stretch", "Wrong pitching position filtering in config file"
         csv = csv[csv["Pitching Position (P)"]==position]
 
+    # the pitch type "eephus" is excluded because it only occurs once in the data
     if label_name=="Pitch Type":
         csv = csv[csv["Pitch Type"]!="Eephus"]
 
-    if five_players:
+    if cfg.five_players:
         csv = cut_csv_to_pitchers(csv)
 
     try:
-        print(np.unique(csv["Pitching Position (P)"].values), np.unique(csv["Pitcher"].values))
+        print("Pitching positions in data:", np.unique(csv["Pitching Position (P)"].values),
+        "Pitcher IDs included in data:", np.unique(csv["Pitcher"].values))
     except TypeError:
         print(len(csv))
     data, labels = get_data_from_csv(csv, label_name, min_length = sequ_len)
@@ -59,18 +44,18 @@ position = None, five_players=False, superclasses=False):
     # data = np.load("data_test.npy")
     # labels = np.load("labels_test.npy")
 
-    if superclasses:
+    if cfg.super_classes:
         labels = Tools.labels_to_classes(labels)
 
-    # shift and flip
+    ## POSSIBLE TO SHIFT AND FLIP DATA TO TRAIN ON MORE GENERAL DATA
     # data_old, _ = Tools.shift_data(data, labels, shift_labels = False, max_shift=30)
     # data_new = Tools.flip_x_data(data_old.copy()) #[:len(data_old)//2]
     # data = np.append(data_new, data_old, axis=0)
     # labels = np.append(labels, labels, axis=0)
     # print(data.shape, labels.shape)
 
-    train_data = Tools.normalize(train_data)
-    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = 20, batch_nr_in_epoch = cfg.batches_per_epoch,
+    data = Tools.normalize(data)
+    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = cfg.epochs, batch_nr_in_epoch = cfg.batches_per_epoch,
             act = tf.nn.relu, rate_dropout =  cfg.dropout,
             learning_rate = cfg.learning_rate, nr_layers = cfg.layers_lstm, n_hidden = cfg.hidden_lstm, optimizer_type="adam",
             first_conv_filters=cfg.first_filters, first_conv_kernel=cfg.first_kernel, second_conv_filter=cfg.second_conv_filter,
@@ -84,29 +69,49 @@ if __name__ == "__main__":
             raise ValueError('Not a valid boolean string')
         return s == 'True'
     parser = argparse.ArgumentParser(description='Train/test neural network for recognizing pitch type from joint trajectories')
-    parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
+    # parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
     parser.add_argument('-label', default="Pitch Type", type=str, help='Pitch Type, Play Outcome or Pitching Position (P) possible so far')
     parser.add_argument('save_path', default="/scratch/nvw224/pitch_type/new_models/position", type=str, help='usually training to classify pitch type, but can also be used for pitching position (with the right model)')
     parser.add_argument('-view', default="cf", type=str, help='either cf (center field) or sv (side view)')
     args = parser.parse_args()
 
     save = args.save_path
-    csv_path = "train_data/"#  "/scratch/nvw224/"
-    print("training", args.training)
+    csv_path = os.path.join(cfg.main_directory, "train_data")#  "/scratch/nvw224/"
+    # print("training", args.training)
     # input_data_list = [[path_outputs+ "old_videos/cf/"]] # , [path_outputs+ "old_videos/sv/"]], [path_outputs+ "new_videos/cf/",
     # csv_list = [csv_path + "cf_data.csv"] #, csv_path + "csv_gameplay.csv", csv_path + "BOS_SV_metadata.csv"]
-    if args.training:
+    if True: #args.training:
         if args.label=="Pitch Type" or args.label=="Pitching Position (P)":
-            csv = csv_path +args.view +"_pitcher.csv"
+            csv = os.path.join(csv_path, args.view +"_pitcher.csv")
         elif args.label=="Play Outcome":
-            csv = csv_path +args.view +"_batter.csv"
+            csv= os.path.join(csv_path, args.view +"_batter.csv")
+            # csv = csv_path +args.view +"_batter.csv"
         else:
             print("USAGE: WRONG INPUT FOR -label ARGUMENT (Pitch Type, Play Outcome or Pitching Position (P))")
             import sys
             sys.exit()
         training(save, csv, label_name = args.label) #, position="Stretch")
-    else:
-        testing(save)
+    #else:
+    #    testing(save)
+
+# TEST ON HIGH QUALITY VIDEOS
+
+# def testing(save_path, sequ_len = 100):
+#     with open("dic_release_high_quality.json", "r") as outfile:
+#         dic_release_high_quality = json.load(outfile)
+#     test_json_files = "/scratch/nvw224/pitch_type/Pose_Estimation/v0testing/"
+#     test_data_path = "/scratch/nvw224/pitch_type/Pose_Estimation/high_quality_testing/pitcher/"
+#     prepro = JsonProcessor()
+#     labels = []
+#     for s in [50,60,70]:
+#         # print("----shift:", s, "-----------")
+#         data, files = prepro.get_test_data(test_json_files, test_data_path, sequ_len, 0, shift=s, labels=dic_release_high_quality)
+#         data = Tools.normalize(data)
+#         lab, out = test(data, save_path)
+#         labels.append(lab)
+#     labels = np.array(labels)
+#     for i in range(len(lab)):
+#         print(files[i], labels[:,i].astype(str).tolist())
 
 
 ## to save parts of the data for testing:

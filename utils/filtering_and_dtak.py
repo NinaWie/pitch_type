@@ -6,9 +6,12 @@ from scipy import ndimage
 import matplotlib.pylab as plt
 from numpy import array, zeros, argmin, inf, equal, ndim
 from scipy.spatial.distance import cdist
+from scipy.signal import butter, lfilter, freqz, group_delay, filtfilt
+from scipy.ndimage.filters import gaussian_filter
+from scipy.spatial.distance import cdist
 
 
-def smooth_estelle(x,window_len=6,window='hanning'):
+def smooth(x,window_len=6,window='hanning'):
     """smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.

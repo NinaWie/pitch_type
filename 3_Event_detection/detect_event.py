@@ -138,6 +138,31 @@ def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_mod
 
 # PITCHER BALL RELEASE FRAME
 
+def hs_release(joints_array, handedness=None):
+    """
+    finds the ball release frame by searching for the point where the arm is raised highest above the shoulders
+    joints_array: the set of trajectories of the pitcher
+    handedness: if the handedness is known, it can be taken into account. Otherwise simply the higher point is selected
+    """
+    wrist_ellbow_right = np.mean(joints_array[j, :, 1:3, 1], axis = 1) # y coordinate of ellbow and wrist
+    wrist_ellbow_left = np.mean(joints_array[j, :, 4:6, 1], axis = 1)
+    shoulders = np.mean(joints_array[j,: ,[0,3],1], axis = 0) # y coordinate of shoulders
+    # print(shoulders.shape)
+    if  handedness=="R":# min(wrist_ellbow_right-shoulders)<min(wrist_ellbow_left-shoulders):
+        higher = np.argmin(wrist_ellbow_right-shoulders)
+        print("higher shoulders right", higher)
+    elif handedness == "L":
+        higher = np.argmin(wrist_ellbow_left-shoulders)
+        print("higher shoulders left", higher)
+    else:
+        if min(wrist_ellbow_right-shoulders)<min(wrist_ellbow_left-shoulders):
+            higher = np.argmin(wrist_ellbow_right-shoulders)
+            print("higher shoulders right", higher)
+        else:
+            higher = np.argmin(wrist_ellbow_left-shoulders)
+            print("higher shoulders left", higher)
+    return higher
+
 def release_frame_conv_net(joints_array_pitcher, model = "saved_models/release_frame_minmax"):
     """
     returns the release frame of a pitcher's joint trajectory
