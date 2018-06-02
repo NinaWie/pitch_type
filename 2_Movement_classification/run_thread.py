@@ -297,7 +297,7 @@ class Runner(threading.Thread):
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
 
-        return 0
+        return 0 # COMMENT OUT IF YOU WANT TO PRINT WHICH ONES WERE CLASSIFIED WRONG
         # if self.files!=[]:
         #     assert len(self.files)==len(self.labels_string)
         print("Wrong ones:")

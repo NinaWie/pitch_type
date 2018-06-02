@@ -10,9 +10,10 @@ flags = tf.app.flags
 ############################
 
 # WORKING DIRECTORY
-path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-path_of_parent_dir = os.path.abspath(os.path.join(path, os.pardir))
-flags.DEFINE_string('main_directory', path_of_parent_dir, 'parent directory of current subdirectory, required to load data etc')
+#path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+#path_of_parent_dir = os.path.abspath(os.path.join(path, os.pardir))
+#print("main dir", path_of_parent_dir)
+#flags.DEFINE_string('main_directory', path_of_parent_dir, 'parent directory of current subdirectory, required to load data etc')
 
 # PARAMETERS: FILTERING OF TRAINING DATA:
 flags.DEFINE_boolean('five_players', False, 'set true if the network should only be trained on the five players with most data')

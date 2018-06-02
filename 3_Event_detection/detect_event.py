@@ -17,7 +17,7 @@ from test import test
 #from notebooks.code_to_json import from_json
 
 from data_preprocess import JsonProcessor
-from tools import Tools
+from utils import Tools
 from test import test
 # path_outputs = "/Volumes/Nina Backup/finished_outputs/"
 # test_json_files = "/Volumes/Nina Backup/high_quality_outputs/"
@@ -105,12 +105,12 @@ def foot_to_ground(batter, release = 90, start_run = None, relevant_joints = [7,
     leg_sequence = np.mean(batter[:, relevant_joints, relevant_coordinate], axis=1)
     start = release-20
     foot_up = start + np.argmin(leg_sequence[start:start_run])
-    if foot_up>start_run-5:
-        print("Too close to first step, not possible")
-        return None, None
+    # if foot_up>start_run-5:
+    #    print("Too close to first step, not possible")
+    #    return None, None
     mean_ground = np.mean(leg_sequence[:foot_up-10])
     foot_down_gradient = foot_up + np.argmin(np.absolute(leg_sequence[foot_up:foot_up+10]-mean_ground))
-    print("in function: first step", start_run, "foot highest", foot_up, "foot down", foot_down_gradient)
+    # print("in function: first step", start_run, "foot highest", foot_up, "foot down", foot_down_gradient)
     return foot_up, foot_down_gradient
 
 def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_models/batter_first_rnn_10_40"):

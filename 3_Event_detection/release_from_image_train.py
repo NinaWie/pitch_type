@@ -8,9 +8,10 @@ from os import listdir
 import cv2
 import ast
 import argparse
+import matplotlib.pylab as plt
 
 import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+sys.path.append("..")
 
 from run_thread import Runner
 from test import test
@@ -27,50 +28,105 @@ def get_test_data(input_dir, f):
     else:
         return None, None
 
-def testing(test_dates, restore_path):
-    results = []
+def boxplots_testing(labels, results):
+    # Delete the rows for which there is no result (can only happen if threshold is used)
+    inds = np.where(np.isnan(results))
+    labels = np.delete(labels, inds)
+    print("For plotting the results, ", len(inds[0]), " data were deleted because no results were available (corresponds to", len(inds[0])*100/float(len(results)), "%)")
+    results = np.delete(results, inds)
+
+    deviation = labels-results
+    error = np.absolute(deviation)
+
+    plt.figure(figsize = (20,10))
+    plt.subplot(131)
+    plt.boxplot(labels, positions= [0], widths=(0.7))
+    plt.xticks([0], ["Statcast"], fontsize=15)
+    plt.yticks(fontsize=15)
+    # plt.title("Ground truth labels")
+    plt.ylabel("Frame index", fontsize=15)
+    plt.ylim(60,160)
+    # plt.show()
+
+    plt.subplot(132)
+    plt.boxplot(results, positions= [0], widths=(0.7))
+    plt.xticks([0], ["2D image approach output"], fontsize=15)
+    plt.yticks(fontsize=15)
+    # plt.title("Error of detected release frame")
+    plt.ylabel("Frame index", fontsize=15)
+    plt.ylim(60,160)
+    # plt.show()
+
+    plt.subplot(133)
+    plt.boxplot(deviation, positions= [0], widths=(0.7))
+    plt.xticks([0], ["Distribution Error"], fontsize=15)
+    plt.yticks(fontsize=15)
+    # plt.title("Error of detected release frame")
+    plt.ylabel("Error (in frames)", fontsize=15)
+    plt.tight_layout()
+    plt.show()
+
+def testing(test_dates, restore_path, start=0, end=160):
+    final_results = []
     final_labels = []
-    each_frame = []
+    # each_frame = []
+
+    # Because otherwise there is too much data, we process all videos of one folder at a time,
+    # and save the results and labels in final_results and final_labels
     for date in test_dates:
-        output = []
+        frames = []
         labels = []
-        input_dir= path_input+"/"+date+"/center field/"
+        input_dir= os.path.join(path_input, date, "center field/")
         list_files = listdir(input_dir)
-        print(date)
+        print("start processing videos of date", date)
         for f in list_files:
             if f[-4:]==".mp4":
                 data, label = get_test_data(input_dir, f)
-                if data is None:
+                if (data is None) or (label is None):
                     continue
-                for elem in data:
-                    output.append(elem)
-                labels.append(label)
-                final_labels.append(label)
-                # break
-  #      break
-        leng = 160
-        output = np.array(output)
+                for elem in data[start:end]:
+                    frames.append(elem)
+                labels.append(label-start)
+                final_labels.append(label-start)
+
+        # make data array
+        leng = end-start
+        frames = np.array(frames)
         labels = np.array(labels)
-        examples, width, height = output.shape
-        data = np.reshape(output, (examples, width, height, 1))
+        examples, width, height = frames.shape
+        data = np.reshape(frames, (examples, width, height, 1))
         print(data.shape, len(data)/leng, len(labels), labels)
+
+        # restore model and predict labels for each frame
         lab, out = test(data, restore_path)
 
-        #right=0
+        # TWO POSSIBILITIES:
+        # - TAKE FRAME WITH HIGHEST OUTPUT
+        # - TAKE FIRST FRAME FOR WHICH THE OUTPUT EXCEEDS A THRESHOLD
+        def highest_prob(outputs):
+            return np.argmax(outputs)
+        def first_over_threshold(outputs, thresh=0.8):
+            over_thresh = np.where(outputs>thresh)[0]
+            if len(over_thresh)==0:
+                return np.nan
+            else:
+                return over_thresh[0]
+
         for i in range(int(len(data)/leng)):
-            each_frame.append([round(elem,2) for elem in out[leng*i:leng*(i+1), 1]])
-            highest = np.argmax(out[leng*i:leng*(i+1), 1])
+            # each_frame.append([round(elem,2) for elem in out[leng*i:leng*(i+1), 1]])
+            highest = highest_prob(out[leng*i:leng*(i+1), 1])
+            # highest = first_over_threshold(out[leng*i:leng*(i+1), 1]) # SECOND POSSIBILITY (see above)
             print("real label:", labels[i], "frame index predicted: ", highest)
-            # print()
-            #if abs(labels[i]-highest)<2:
-            #    right+=1
-            results.append(highest)
+            final_results.append(highest)
+
         print("----------------------------")
-        print("finished processing for date", date, "now results:", results)
-        np.save("each_frame_release_from_images", np.array(each_frame))
-        np.save("results_release_from_images", np.array(results))
-        np.save("labels_release_from_images", np.array(final_labels))
-        print("saved intermediate", len(results), len(final_labels))
+        print("finished processing for date", date, "now results:", final_results)
+        # np.save("../outputs/release_160_frames_2/each_frame_release_from_images", np.array(each_frame))
+        # np.save("../outputs/release_160_frames_2/results_release_from_images", np.array(results))
+        # np.save("../outputs/release_160_frames_2/labels_release_from_images", np.array(final_labels))
+        print("saved intermediate", len(final_results), len(final_labels))
+
+    boxplots_testing(final_labels, final_results)
     #
     # for i in range(int(len(data)/30)):
     #     print("real label:", labels[i])
@@ -102,7 +158,6 @@ def testing_singlevideo(input_dir, f, restore_path):
     print("frame index predicted: ", highest)
     np.save("predicted_frame", data[highest])
     np.save("all_frames", data)
-
 
 
 def get_train_data(dates):
@@ -151,13 +206,13 @@ def training(dates, save_path):
 
 # HYPER PARAMETERS
 
-path_input = "/scratch/nvw224/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
-path_output = "/scratch/nvw224/arrays/" # TRAINING DATA: must be saved as array first, use class VideoProcessor in array_from_videos.py
-cf_data_path = "/scratch/nvw224/cf_data.csv" # Statcast labels, download from google drive
-
-# path_input = "/Volumes/Nina Backup/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
+# path_input = "/scratch/nvw224/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
 # path_output = "/scratch/nvw224/arrays/" # TRAINING DATA: must be saved as array first, use class VideoProcessor in array_from_videos.py
-# cf_data_path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL/train_data/cf_data.csv"
+# cf_data_path = "/scratch/nvw224/cf_data.csv" # Statcast labels, download from google drive
+
+path_input = "/Volumes/Nina Backup/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
+# path_output = "/scratch/nvw224/arrays/" # TRAINING DATA: must be saved as array first, use class VideoProcessor in array_from_videos.py
+cf_data_path = "/../train_data/cf_data.csv"
 
 cut_off_min = 80 # lowest possible release frame
 cut_off_max= 110 # highest possible release frame (in old videos, sometimes release frame label was >1000)

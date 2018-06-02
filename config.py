@@ -10,14 +10,14 @@ flags = tf.app.flags
 # FMO detection
 flags.DEFINE_float('metric_thresh', 0.5, 'threshold below which slopes and distance metric is classified a ball trajectory')
 flags.DEFINE_integer('min_dist', 10, 'minimum distance (in pixel) a fast moving object must have travelled to be added to graph')
-flags.DEFINE_float('factor_pixel_feet', 0.5, 'distance in reality in feet * factor_pixel_feet = distance on image in pixel (required to calculate speed)')
-flags.DEFINE_string('pitcher_mound_coordinates', '[110, 140]', 'xy coordinate of pitchers mound center (to calculate distance of ball from pitcher)')
-flags.DEFINE_string('batter_base_coordinates', '[690, 288]', 'xy coordinate of batter base center (to calculate distance of ball from pitcher)')
+# flags.DEFINE_float('factor_pixel_feet', 0.5, 'distance in reality in feet * factor_pixel_feet = distance on image in pixel (required to calculate speed)')
+# flags.DEFINE_string('pitcher_mound_coordinates', '[110, 140]', 'xy coordinate of pitchers mound center (to calculate distance of ball from pitcher)')
+# flags.DEFINE_string('batter_base_coordinates', '[690, 288]', 'xy coordinate of batter base center (to calculate distance of ball from pitcher)')
 flags.DEFINE_integer('max_frames_first_move', 10, 'if first movement has started at frame i, it must be maximal i+10 when a sequence is classified as the first move')
-flags.DEFINE_boolean('refine', True, 'set False if first movement should not be refined as the moment the leg is highest')
+# flags.DEFINE_boolean('refine', True, 'set False if first movement should not be refined as the moment the leg is highest')
 flags.DEFINE_integer('refine_range', 10, 'radius around predicted first movement where it can be refined')
-
-
+flags.DEFINE_integer('min_length_first', 5, 'minimum number of frames in a first movement sequence')
+flags.DEFINE_integer('factor_knee_radius', 1, 'factor that defines radius around knees and ankles (multiplied with the distance between ankes and knees)')
 
 
 # # FROM CAPSNET

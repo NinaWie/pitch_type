@@ -9,6 +9,7 @@ class Model:
 
     def conv1d_with_parameters(self, x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
     second_conv_kernel, first_hidden_dense, second_hidden_dense):
+        print("dropout", rate_dropout)
         shape = x.get_shape().as_list()
         net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
         if first_conv_filters!=0:
@@ -114,9 +115,7 @@ class Model:
     def RNN(self, x_in, nr_classes, n_hidden, nr_layers):
         shape = x_in.get_shape().as_list()
         x_in = tf.reshape(x_in, (-1, shape[1], shape[2]*shape[3]))
-
         x = tf.unstack(x_in, shape[1], 1)
-
         def lstm_cell():
               return rnn.BasicLSTMCell(n_hidden, forget_bias=1.0)
 

@@ -17,7 +17,7 @@ from test import test
 #from notebooks.code_to_json import from_json
 
 from data_preprocess import JsonProcessor, get_data_from_csv
-from tools import Tools
+from utils import Tools
 from test import test
 
 def testing(save_path, sequ_len=100, start = 80):
