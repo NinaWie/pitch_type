@@ -6,44 +6,6 @@ import scipy.stats
 from os import listdir
 import json
 
-def get_data_from_csv(cf, label, min_length=160):
-    print("number of different games", len(np.unique(cf["Game"].values)), "length of csv file", len(cf.index))
-    data = []
-    labels = []
-    for i in cf.index:
-        d = np.array(eval(cf.loc[i]["Data"]))
-        if len(d)<min_length or pd.isnull(cf.loc[i][label]):
-            # print("too short or wrong label", cf.loc[i][label])
-            continue
-        data.append(d[:min_length])
-        labels.append(cf.loc[i][label])
-    data = np.array(data)
-    labels = np.array(labels)
-    unique = np.unique(labels)
-    print(data.shape, labels.shape, unique)
-    return data, labels
-
-def cut_csv_to_pitchers(cf):
-    def get_list_with_most(cf, column):
-        pitcher = cf[column].values #.astype(int)
-        statistic = sp.stats.itemfreq(pitcher) #.sort(axis = 0)
-        #if column == "Pitch Type":
-        #    print(statistic)
-        number = np.array(statistic[:,1])
-        a = b = []
-        for i in range(5):
-            maxi = np.argmax(number)
-            a.append(statistic[maxi,0])
-            number[maxi]=0
-        return a, statistic
-
-    player, _ = get_list_with_most(cf, "Pitcher")
-    print(player)
-    ind = []
-    for p in player:
-        ind += (np.where(cf["Pitcher"].values==p)[0]).tolist()
-    return cf.iloc[ind]
-
 class JsonProcessor:
     #def __init__(self):
 

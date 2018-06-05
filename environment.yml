@@ -15,6 +15,7 @@ dependencies:
   - pandas=0.22.0
   - pillow=5.1.0
   - configobj=5.0.6
+  - sk-video=1.1.10
   - pip
   - pip:
     - tensorflow-tensorboard>=0.1.5

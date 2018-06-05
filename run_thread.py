@@ -6,9 +6,6 @@ import scipy.stats
 import threading
 
 import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
-#from sklearn.preprocessing import StandardScaler
-#from self.data_preprocess import Preprocessor
 from utils import Tools
 from model import Model
 
@@ -296,16 +293,3 @@ class Runner(threading.Thread):
         Tools.confusion_matrix(np.asarray(pitches_test), np.asarray(labels_string_test)) # confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
         if self.SAVE!=None:
             saver.save(sess, self.SAVE)
-
-        return 0
-        # if self.files!=[]:
-        #     assert len(self.files)==len(self.labels_string)
-        print("Wrong ones:")
-        assert len(test_ind)==len(labels_string_test)
-        for i in range(len(pitches_test)):
-            if pitches_test[i]!=labels_string_test[i]:
-                print("out", pitches_test[i], "true", labels_string_test[i]) #self.files[test_ind[i]],
-        pitches = np.append(pitches_test, pitches_train, axis = 0)
-        labs = np.append(labels_string_test, labels_string_train, axis = 0)
-        #print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
-        return test_ind, pitches_test, labels_string_test[i]

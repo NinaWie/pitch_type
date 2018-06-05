@@ -2,8 +2,15 @@
 
 For all versions, you first need to download the model: `cd model; sh get_model.sh`
 
-Simple test version of pose estimation: input one video and outputs images with plotted skeletons: [here](ice_hockey.py) - without player localization, filtering etc
+Simple test version of pose estimation: input one video and outputs images with plotted skeletons: [here](pose_estimation_script.py) - without player localization, filtering etc
 
+usage: 
+
+python pose_estimation_script.py path_to_input_video output_directory -number_of_frames
+
+output_directory: does not need to exist yet
+path_to_input_video: must be a video file (.m4v, .mp4, .avi, etc.)
+number_of_frames: if only a some frames should be processed
 
 ### Process videos to joint trajectories
 
@@ -19,10 +26,10 @@ Following steps are executed:
 
 Two different files for either testing a few videos or all available videos:
 
-* For multiple files in folders by date, use [folder script](from_video_to_joints.py)
-* For some example files in one folder, use [file script](real_time_localize.py)
+* To process all files from the Atlanta stadium (by date), use [folder script](from_video_to_joints.py)
+* For some example files in one folder, use [file script](joint_trajectories.py)
 
-usage: real_time_localize.py [-h] DIR DIR center
+usage: joint_trajectories.py [-h] DIR DIR center
 
 Pose Estimation Baseball
 
@@ -42,7 +49,8 @@ optional arguments:
 Examples:
 
 ```bash
-python real_time_localize.py demo_data/ out_demo/ datPitcher 
+python joint_trajectories.py demo_data/ out_demo/ datPitcher 
+python joint_trajectories.py high_quality_videos/ out_hq/ center_dics.json 
 ```
 
 Note: The "center" parameter might be confusing: It refers to the center of the hips of the target person in the first frame, which is required for localizing the target from all detected persons. However, we have tested pose estimation with two different kind of input videos: The database of MLBAM, containing ten thousands of videos of plays, and 30 high quality videos on the other hand. For MLBAM videos, the starting position is giving in a .dat file for each video. If these videos are used, then dependent on whether the target player is the Pitcher or the Batter, the center argument must be datPitcher or datBatter. Then for each video the belonging dat file is used. If the high quality videos are used though, no .dat files are available, so we just manually made a json file containing the starting point for each video file in a dictionary. In this case, the argument must be the file to the json path, which can be found in train_data/center_dic.
@@ -50,13 +58,5 @@ Note: The "center" parameter might be confusing: It refers to the center of the 
 ### Other files in this folder:
 * The pose estimation is done using the function handle_one(img) in the file pose_estimation_script.py
 * Localization, smoothing and interpolating functions can be found in [data_processing](data_processing.py)
-* A [notebook](Player localization.ipynb) is used to color videos, test localization and other pose estimation related outputs.
+* A [notebook](visualization_pose_estimation.ipynb) is used to color videos compare different methods for filling in missing values and smoothing/filtering the joint trajectories.
 * json_to_csv is used to take all output json files of one folder and save them in a csv file instead (better for training models later than loading sons individually every time)
-
-### Unit Tests
-
-Run unittests by simply calling
-
-```bash
-python -m unittest discover tests
-```

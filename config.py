@@ -8,7 +8,7 @@ flags = tf.app.flags
 ############################
 
 # FMO detection
-flags.DEFINE_float('metric_thresh', 0.5, 'threshold below which slopes and distance metric is classified a ball trajectory')
+flags.DEFINE_float('metric_thresh', 1.8, 'threshold below which slopes and distance metric is classified a ball trajectory')
 flags.DEFINE_integer('min_dist', 10, 'minimum distance (in pixel) a fast moving object must have travelled to be added to graph')
 # flags.DEFINE_float('factor_pixel_feet', 0.5, 'distance in reality in feet * factor_pixel_feet = distance on image in pixel (required to calculate speed)')
 # flags.DEFINE_string('pitcher_mound_coordinates', '[110, 140]', 'xy coordinate of pitchers mound center (to calculate distance of ball from pitcher)')

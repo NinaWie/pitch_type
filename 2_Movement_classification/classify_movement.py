@@ -10,13 +10,12 @@ import cv2
 import argparse
 import json
 
-from run_thread import Runner
 from config import cfg
 import sys
 sys.path.append("..")
 
+from run_thread import Runner
 from test import test
-from data_preprocess import JsonProcessor, get_data_from_csv, cut_csv_to_pitchers
 from utils import Tools
 
 def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30):
@@ -30,14 +29,14 @@ def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_
         csv = csv[csv["Pitch Type"]!="Eephus"]
 
     if cfg.five_players:
-        csv = cut_csv_to_pitchers(csv)
+        csv = Tools.cut_csv_to_pitchers(csv)
 
     try:
         print("Pitching positions in data:", np.unique(csv["Pitching Position (P)"].values),
         "Pitcher IDs included in data:", np.unique(csv["Pitcher"].values))
     except TypeError:
         print(len(csv))
-    data, labels = get_data_from_csv(csv, label_name, min_length = sequ_len)
+    data, labels = Tools.get_data_from_csv(csv, label_name, min_length = sequ_len)
 
     print(data.shape)
 
@@ -55,19 +54,13 @@ def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_
     # print(data.shape, labels.shape)
 
     data = Tools.normalize(data)
-
-    # for nr_stacked in [1,2,4,8]:
-        # for nr_hidden in [32, 56, 160, 256]:
-    print()
-    print("NEW CONFIGURATION:")
-    print("rnn") #, nr_stacked, "hidden units", nr_hidden)
-    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = 2000, batch_nr_in_epoch = cfg.batches_per_epoch,
-        act = tf.nn.relu, rate_dropout =  cfg.dropout,
-        learning_rate = cfg.learning_rate, nr_layers = 8, n_hidden = 256, optimizer_type="adam",
-        first_conv_filters=cfg.first_filters, first_conv_kernel=cfg.first_kernel, second_conv_filter=cfg.second_conv_filter,
-        second_conv_kernel=cfg.second_conv_kernel, first_hidden_dense=cfg.first_hidden_dense, second_hidden_dense=cfg.second_hidden_dense,
-        network = "rnn") # adjustable conv1d") #conv1d_big")
-    runner.run()
+    runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = cfg.epochs, batch_nr_in_epoch = cfg.batches_per_epoch,
+            act = tf.nn.relu, rate_dropout =  cfg.dropout,
+            learning_rate = cfg.learning_rate, nr_layers = cfg.layers_lstm, n_hidden = cfg.hidden_lstm, optimizer_type="adam",
+            first_conv_filters=cfg.first_filters, first_conv_kernel=cfg.first_kernel, second_conv_filter=cfg.second_conv_filter,
+            second_conv_kernel=cfg.second_conv_kernel, first_hidden_dense=cfg.first_hidden_dense, second_hidden_dense=cfg.second_hidden_dense,
+            network = "adjustable conv1d") #conv1d_big")
+    runner.start()
 
 if __name__ == "__main__":
     def boolean_string(s):
@@ -82,7 +75,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     save = args.save_path
-    csv_path = os.path.join(cfg.main_directory, "train_data")#  "/scratch/nvw224/"
+    csv_path = os.path.join("..", "train_data")#  "/scratch/nvw224/"
     # print("training", args.training)
     # input_data_list = [[path_outputs+ "old_videos/cf/"]] # , [path_outputs+ "old_videos/sv/"]], [path_outputs+ "new_videos/cf/",
     # csv_list = [csv_path + "cf_data.csv"] #, csv_path + "csv_gameplay.csv", csv_path + "BOS_SV_metadata.csv"]

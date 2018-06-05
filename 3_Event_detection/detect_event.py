@@ -9,14 +9,10 @@ import cv2
 import ast
 
 import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+sys.path.append("..")
 
 from run_events import Runner
-from test import test
-# import matplotlib.pylab as plt
-#from notebooks.code_to_json import from_json
 
-from data_preprocess import JsonProcessor
 from utils import Tools
 from test import test
 # path_outputs = "/Volumes/Nina Backup/finished_outputs/"

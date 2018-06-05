@@ -20,9 +20,9 @@ parser.add_argument('output_folder', metavar='DIR', # output dir
                     help='folder where to store the json files with the output coordinates')
 parser.add_argument('center',  #
                     help='specify what kind of file is used for specifying the center of the target person: either path_to_json_dictionary.json, or datPitcher, or datBatter')
-restore_first_move = "/scratch/nvw224/pitch_type/saved_models/first_move_more"
-restore_release = "/scratch/nvw224/pitch_type/saved_models/release_model"
-restore_position = "/scratch/nvw224/pitch_type/saved_models/modelPosition"
+# restore_first_move = "/scratch/nvw224/pitch_type/saved_models/first_move_more"
+# restore_release = "/scratch/nvw224/pitch_type/saved_models/release_model"
+# restore_position = "/scratch/nvw224/pitch_type/saved_models/modelPosition"
 
 # example arg: /Volumes/Nina\ Backup/videos/atl/2017-04-15/center\ field/490266-0aeec26e-80f7-409f-8ae7-a40b834b3a81.mp4
 

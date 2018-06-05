@@ -342,7 +342,7 @@ def color_and_save_image(ori_img, all_peaks, save_name):
 def define_bbox(res, boundaries, min_width=30):
     """
     return bbox from last detection, extended by factor* boxwidth
-    box: [left bound, right bound, upper bound, lower bound]
+    bbox: [left bound, right bound, upper bound, lower bound]
     input is ouput of pose estimation and boundaries of frame
     """
     joints_for_bbox = np.where(res[:,0]!=0)[0]
@@ -350,12 +350,12 @@ def define_bbox(res, boundaries, min_width=30):
     bbox = np.array([np.min(res[joints_for_bbox, 0]), np.max(res[joints_for_bbox, 0]),
            np.min(res[joints_for_bbox, 1]), np.max(res[joints_for_bbox, 1])]).astype(int)
     # extends bounding box by adding the width of the box on all sides (up to boundaries)
-    width = max(0.5*(bbox[1]-bbox[0]), min_width)
-    for i in range(len(bbox)): # every second of the box must subtract the width
+    width = max(0.5*(bbox[1]-bbox[0]), min_width) # a minimum width is set
+    for i in range(len(bbox)): # every second of the box must subtract the width, the other parts add the width
         bbox[i]-=width
         width*=(-1)
         if (bbox[i]<boundaries[i] and width<0) or (bbox[i]>boundaries[i] and width>0):
-            bbox[i]=boundaries[i]
+            bbox[i]=boundaries[i] # set to boundary if over edge
     return bbox
 
 def save_inbetween(arr, fi, out_dir, events_dic):

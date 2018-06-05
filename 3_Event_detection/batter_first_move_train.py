@@ -5,7 +5,7 @@ import scipy as sp
 import scipy.stats
 
 import sys
-sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
+sys.path.append("..")
 
 from tools import Tools
 from model import Model

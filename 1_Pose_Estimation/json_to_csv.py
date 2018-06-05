@@ -1,28 +1,16 @@
 import pandas as pd
 import numpy as np
 import os
-import json
-
-def from_json(file):
-    coordinates = ["x", "y"]
-    joints_list = ["right_shoulder", "right_elbow", "right_wrist", "left_shoulder","left_elbow", "left_wrist",
-            "right_hip", "right_knee", "right_ankle", "left_hip", "left_knee", "left_ankle",
-            "right_eye", "right_ear","left_eye", "left_ear", "nose ", "neck"]
-    with open(file, 'r') as inf:
-        out = json.load(inf)
-
-    liste = []
-    for fr in out["frames"]:
-        l_joints = []
-        for j in joints_list[:12]:
-            l_coo = []
-            for xy in coordinates:
-                l_coo.append(fr[j][xy])
-            l_joints.append(l_coo)
-        liste.append(l_joints)
-    return np.array(liste)
+import sys
+sys.path.append("..")
+from fmo_detection import from_json
 
 def outcome_simplification(out):
+    """
+    The Play outcome labels from Statcast contain a list of actions that happened
+    For the current movement classification, only three classes (no swing, hit and run) are distinguished
+    This function returns for each Statcast label the corresponting simplified class
+    """
     if pd.isnull(out):
         return np.nan
     if "Foul" in out or "Swinging strike" in out:
@@ -34,32 +22,41 @@ def outcome_simplification(out):
     else:
         return np.nan
 
-cf = pd.read_csv("sv_data.csv")
-path = "pitch_type/Pose_Estimation/sv_outputs/"
-# path = "/Volumes/Nina Backup/finished_outputs/old_videos/cf/"
+# SPECIFY VIEW (cf or sv)
+VIEW = "sv"
+# SPECIFY PATH OF JSON FILES
+# path = "pitch_type/Pose_Estimation/sv_outputs/"
+path = "/Volumes/Nina Backup/finished_outputs/old_videos/cf/"
+
+
+cf = pd.read_csv(os.path.join("..", "train_data", VIEW+"_data.csv")) # previous metadata file
 print("nr json files", len(os.listdir(path)))
 
+# create data frame for each player
 df_pitcher = pd.DataFrame(columns=["Game", "Pitch Type", "balls", "prev_pitch_type", "First move","handedness", "Pitcher", "pitch_frame_index", "Pitching Position (P)", "all outcomes", "Play Outcome", "Data"]) #, index = np.unique(cf["Game"].values))
 df_batter = pd.DataFrame(columns=["Game", "Play Outcome", "all outcomes", "Batter", "handedness", "balls", "Data"])
 
 print("nr first cf", len(np.unique(cf["Game"].values)))
 count = 0
-for i, name in enumerate(np.unique(cf["Game"].values)):
+for i, name in enumerate(np.unique(cf["Game"].values)): # for each game id
+    # get line in metadata
     line = cf[cf["Game"]==name]
-    f_p = path+name+"_pitcher.json"
-    if  os.path.exists(f_p):
+
+    # Open file with the joint trajectories for pitcher
+    f_p = os.path.join(path,name+"_pitcher.json")
+    if os.path.exists(f_p):
         data = from_json(f_p)
-        # print(data.shape)
     else:
-        # print("file not found")
         continue
-    f_b = path+name+"_batter.json"
-    if  os.path.exists(f_b):
+
+    # Open file with the joint trajectories for batter
+    f_b = os.path.join(path, name+"_batter.json")
+    if os.path.exists(f_b):
         data_batter = from_json(f_b)
-        # print(data.shape)
     else:
-        # print("file not found")
         continue
+
+    # check for each label from metadata if it is realistic or None etc.
     first_move = line["first_movement_frame_index"].values[0]
     if np.isnan(first_move) or first_move<5 or first_move>120:
         first_move = np.nan
@@ -80,11 +77,16 @@ for i, name in enumerate(np.unique(cf["Game"].values)):
     pitcher_side =  line["Pitcher throws"].values[0]
     batter_side = line["Batter side"].values[0]
     prev_pichtype = None
-    # print(name)
+    # Add Series with Metadata and joint trjaectories to csv
     df_pitcher.loc[count] = pd.Series({"Game": name, "balls":balls, "all outcomes":out, "Play Outcome": outcome, "prev_pitch_type": prev_pichtype, "Pitcher": pitcher, "handedness": pitcher_side,"Pitch Type": pitch_type, "Pitching Position (P)":position, "First move": first_move, "pitch_frame_index": release, "Data": data.tolist()})
     df_batter.loc[count] = pd.Series({"Game": name, "Batter": batter, "handedness": batter_side, "balls": balls,"all outcomes":out, "Play Outcome": outcome, "Data": data_batter.tolist()})
+    print(df_pitcher.loc[count])
     count+=1
 
+df_pitcher.to_csv(VIEW+"_pitcher.csv")
+df_batter.to_csv(VIEW+"sv_batter.csv")
+
+## version with other metadata file
 # already_there = df_pitcher["Game"].values
 #
 # metadata = pd.read_csv("pitch_type/Pose_Estimation/ATL_CF_metadata.csv")
@@ -140,10 +142,6 @@ for i, name in enumerate(np.unique(cf["Game"].values)):
 #     df_batter.loc[count] = pd.Series({"Game": name, "Batter": batter, "handedness": batter_side, "balls": balls,"all outcomes":out, "Play Outcome": outcome,  "Data": data_batter.tolist()})
 #     count+=1
 
-
-
-df_pitcher.to_csv("sv_pitcher.csv")
-df_batter.to_csv("sv_batter.csv")
 
 
 # retrieve
