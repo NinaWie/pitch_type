@@ -278,9 +278,13 @@ class Runner(threading.Thread):
                 out_train = sess.run(out, {x: train_x, y: train_t, training: False})
                 pitches_train = Tools.decode_one_hot(out_train, self.unique)
                 acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
-                print(loss_test, acc_test[-1], acc_balanced[-1])
-                if acc_train!=[]:
-                    print("acc_train: ", acc_train[-1])
+                # print(loss_test, acc_test[-1], acc_balanced[-1])
+                # if acc_train!=[]:
+                #     print("acc_train: ", acc_train[-1])
+                if epoch%20==0:
+                    print('{:>20}'.format("Loss"), '{:>20}'.format("Acc test"), '{:>20}'.format("Acc balanced"), '{:>20}'.format("Acc train"))
+                print('{:20}'.format(round(float(loss_test),3)), '{:20}'.format(acc_test[-1]), '{:20}'.format(acc_balanced[-1]), '{:20}'.format(acc_train[-1]))
+
                 # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
                 #     saver.save(sess, self.SAVE)
                 #     print("model saved with name", self.SAVE)
@@ -321,14 +325,3 @@ class Runner(threading.Thread):
             json.dump(dic, outfile)
 
         return 0
-        # if self.files!=[]:
-        #     assert len(self.files)==len(self.labels_string)
-        print("Wrong ones:")
-        assert len(test_ind)==len(labels_string_test)
-        for i in range(len(pitches_test)):
-            if pitches_test[i]!=labels_string_test[i]:
-                print("out", pitches_test[i], "true", labels_string_test[i]) #self.files[test_ind[i]],
-        pitches = np.append(pitches_test, pitches_train, axis = 0)
-        labs = np.append(labels_string_test, labels_string_train, axis = 0)
-        #print("ACCURACY IN RANGE 2", Tools.accuracy_in_range(pitches.flatten(), labs.flatten(), 2))
-        return test_ind, pitches_test, labels_string_test[i]

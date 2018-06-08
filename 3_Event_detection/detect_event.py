@@ -109,7 +109,7 @@ def foot_to_ground(batter, release = 90, start_run = None, relevant_joints = [7,
     # print("in function: first step", start_run, "foot highest", foot_up, "foot down", foot_down_gradient)
     return foot_up, foot_down_gradient
 
-def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_models/batter_first_rnn_10_40"):
+def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_models/batter_first_step", start_after_release=10, sequence_length=40):
     """
     Neural network method: takes an array of some joint trajectories data,
     cuts it to length 32, starting from 10 frames after the relase frame,
@@ -119,14 +119,15 @@ def first_move_batter_NN(joints_array_batter, release_frames, model = "saved_mod
     (should be smoothed and interpolated) - can be list because different data can have different nr_frames
     release frames: array of size nr_data, required to cut array at the right spot
     """
-    start_after_release = int(model.split("_")[-2])
-    sequence_length = int(model.split("_")[-1])
-    print(start_after_release, sequence_length)
+    # start_after_release = int(model.split("_")[-2])
+    # sequence_length = int(model.split("_")[-1])
+
+    # print(start_after_release, sequence_length)
     data = []
     for i, d in enumerate(joints_array_batter):
         cutoff_min = release_frames[i]+ start_after_release
         cutoff_max = cutoff_min+sequence_length
-        data.append(d[cutoff_min:cutoff_max, 6:12])
+        data.append(d[cutoff_min:cutoff_max, :12])
     data = Tools.normalize01(np.array(data))
     lab, out = test(data, model)
     labels = np.asarray(lab.reshape(-1)) + np.asarray(release_frames) + start_after_release
@@ -158,16 +159,6 @@ def hs_release(joints_array, handedness=None):
             higher = np.argmin(wrist_ellbow_left-shoulders)
             print("higher shoulders left", higher)
     return higher
-
-def release_frame_conv_net(joints_array_pitcher, model = "saved_models/release_frame_minmax"):
-    """
-    returns the release frame of a pitcher's joint trajectory
-    joints_array_batter: array of size 100(nr_frames)*nr_joints*nr_coordinates
-    (conv network can only handle input of certain size, therefore the joints trajectory array must be cut to length 100, release frame should be expected between frame 40 and 80)
-    """
-    data = Tools.normalize01(joints_array_pitcher)
-    lab, out = test(data, model)
-    return lab
 
 def release_frame_2Dfrom_video(video_path, bbox=None, model = "saved_models/release_model"):
     """

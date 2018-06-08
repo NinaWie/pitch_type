@@ -1,2 +1,2 @@
-model_checkpoint_path: "validation_test"
-all_model_checkpoint_paths: "validation_test"
+model_checkpoint_path: "pitch_type"
+all_model_checkpoint_paths: "pitch_type"

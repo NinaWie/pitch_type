@@ -83,7 +83,7 @@ class Runner(threading.Thread):
         print("mean of train", np.mean(train_x))
         print("mean of test", np.mean(test_x))
 
-        train_t= labels[train_ind]
+        train_t = labels[train_ind]
         test_t = labels[test_ind]
         labels_string_train = self.labels_string[train_ind]
         labels_string_test = self.labels_string[test_ind]
@@ -263,9 +263,13 @@ class Runner(threading.Thread):
             out_train = sess.run(out, {x: train_x, y: train_t, training: False})
             pitches_train = Tools.decode_one_hot(out_train, self.unique)
             acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
-            print(loss_test, acc_test[-1], acc_balanced[-1])
-            if acc_train!=[]:
-                print("acc_train: ", acc_train[-1])
+            # print(loss_test, acc_test[-1], acc_balanced[-1])
+            # if acc_train!=[]:
+            #    print("acc_train: ", acc_train[-1])
+            if epoch%20==0:
+                print('{:>20}'.format("Loss"), '{:>20}'.format("Acc test"), '{:>20}'.format("Acc balanced"), '{:>20}'.format("Acc train"))
+            print('{:20}'.format(round(float(loss_test),3)), '{:20}'.format(acc_test[-1]), '{:20}'.format(acc_balanced[-1]), '{:20}'.format(acc_train[-1]))
+
             # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
             #     saver.save(sess, self.SAVE)
             #     print("model saved with name", self.SAVE)

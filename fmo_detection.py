@@ -8,7 +8,7 @@ import json
 import pandas as pd
 from skvideo import io
 
-from config import cfg
+from config_fmo import cfg
 
 def from_json(file):
     """
@@ -330,6 +330,9 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
     :param plotting: if all detected candidates should be plotted on the frame
     :param roi: region of interest if not the whole frame is relevant, format: list [top, bottom, left, right] with top<bottom
     """
+    if not os.path.exists(folder):
+        print("Error: video path does not exist!")
+        return 0
 
     cap = cv2.VideoCapture(folder)
 
@@ -503,3 +506,12 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
             b[0]+= roi[0]
             b[1]+= roi[2]
     return ball_release, np.array(ball_trajectory), first_move_frame, candidates_per_frame[length_lists+1:]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run FMO-C on a video to find motion candidates')
+    parser.add_argument('-min_area', default=400, type=int, help='Minimum area to find connected components from difference images')
+    parser.add_argument('video_path', type=str, help='path to the video')
+    args = parser.parse_args()
+
+    ball_release, ball_trajectory, first_move_frame, candidates_per_frame = detect_ball(args.video_path, min_area=args.min_area)

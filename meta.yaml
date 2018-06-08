@@ -1,0 +1,17 @@
+---
+title: Computer Vision Methods for Baseball Analysis - Documentation
+author:
+  - Nina Wiedemann
+institute: Computer Vision Group
+date: 09.06.2018
+codeBlockCaptions: True
+figPrefix:
+  - figure
+  - figures
+lstPrefix:
+  - listing
+  - listings
+secPrefix:
+  - section
+  - sections
+...

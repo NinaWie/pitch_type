@@ -1,6 +1,10 @@
 # Pose estimation
 
-For all versions, you first need to download the model: `cd model; sh get_model.sh`
+//For all versions, you first need to download the model: `cd model; sh get_model.sh`
+
+## Script for pose estimation
+
+
 
 Simple test version of pose estimation: input one video and outputs images with plotted skeletons: [here](pose_estimation_script.py) - without player localization, filtering etc
 

@@ -7,6 +7,7 @@ import json
 import os
 from os import listdir
 import cv2
+import time
 import argparse
 import json
 
@@ -18,42 +19,28 @@ from run_thread import Runner
 from test import test
 from utils import Tools
 
-def training(save_path, csv_path, label_name= "Pitch Type", sequ_len = 160, max_shift=30):
-    csv = pd.read_csv(csv_path)
-    if len(cfg.position) > 0:
-        assert cfg.position=="Windup" or cfg.position=="Stretch", "Wrong pitching position filtering in config file"
-        csv = csv[csv["Pitching Position (P)"]==position]
+def testing(data, labels, save_path):
+    """
+    Tests movement classification model on the first 5% of the data in the csv file (trained on last 95%)
+    """
 
-    # the pitch type "eephus" is excluded because it only occurs once in the data
-    if label_name=="Pitch Type":
-        csv = csv[csv["Pitch Type"]!="Eephus"]
+    print("Data shape", data.shape, "Mean of data", np.mean(data))
+    tic = time.time()
+    labs, out = test(data, save_path)
+    toc = time.time()
+    print("time for nr labels", len(labs), toc-tic)
+    for i in range(20): #len(labs)):
+        print(labs[i], np.around(out[i],2))
 
-    if cfg.five_players:
-        csv = Tools.cut_csv_to_pitchers(csv)
+    #  To compare with labels
+    print(labels.shape)
+    for i in range(20): #len(labels)):
+        print('{:20}'.format(labels[i]), '{:20}'.format(labs[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
+    print("Accuracy:",Tools.accuracy(np.asarray(labs), labels))
+    print("Balanced accuracy:", Tools.balanced_accuracy(np.asarray(labs), labels))
 
-    try:
-        print("Pitching positions in data:", np.unique(csv["Pitching Position (P)"].values),
-        "Pitcher IDs included in data:", np.unique(csv["Pitcher"].values))
-    except TypeError:
-        print(len(csv))
-    data, labels = Tools.get_data_from_csv(csv, label_name, min_length = sequ_len)
 
-    print(data.shape)
-
-    # data = np.load("data_test.npy")
-    # labels = np.load("labels_test.npy")
-
-    if cfg.super_classes:
-        labels = Tools.labels_to_classes(labels)
-
-    ## POSSIBLE TO SHIFT AND FLIP DATA TO TRAIN ON MORE GENERAL DATA
-    # data_old, _ = Tools.shift_data(data, labels, shift_labels = False, max_shift=30)
-    # data_new = Tools.flip_x_data(data_old.copy()) #[:len(data_old)//2]
-    # data = np.append(data_new, data_old, axis=0)
-    # labels = np.append(labels, labels, axis=0)
-    # print(data.shape, labels.shape)
-
-    data = Tools.normalize(data)
+def training(data, labels, save_path):
     runner = Runner(data, labels, SAVE = save_path, BATCH_SZ=cfg.batch_size, EPOCHS = cfg.epochs, batch_nr_in_epoch = cfg.batches_per_epoch,
             act = tf.nn.relu, rate_dropout =  cfg.dropout,
             learning_rate = cfg.learning_rate, nr_layers = cfg.layers_lstm, n_hidden = cfg.hidden_lstm, optimizer_type="adam",
@@ -68,30 +55,87 @@ if __name__ == "__main__":
             raise ValueError('Not a valid boolean string')
         return s == 'True'
     parser = argparse.ArgumentParser(description='Train/test neural network for recognizing pitch type from joint trajectories')
-    # parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
+    parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
     parser.add_argument('-label', default="Pitch Type", type=str, help='Pitch Type, Play Outcome or Pitching Position (P) possible so far')
     parser.add_argument('save_path', default="/scratch/nvw224/pitch_type/new_models/position", type=str, help='usually training to classify pitch type, but can also be used for pitching position (with the right model)')
     parser.add_argument('-view', default="cf", type=str, help='either cf (center field) or sv (side view)')
     args = parser.parse_args()
 
     save = args.save_path
-    csv_path = os.path.join("..", "train_data")#  "/scratch/nvw224/"
+    train_data_path = os.path.join("..", "train_data")#  "/scratch/nvw224/"
     # print("training", args.training)
     # input_data_list = [[path_outputs+ "old_videos/cf/"]] # , [path_outputs+ "old_videos/sv/"]], [path_outputs+ "new_videos/cf/",
     # csv_list = [csv_path + "cf_data.csv"] #, csv_path + "csv_gameplay.csv", csv_path + "BOS_SV_metadata.csv"]
-    if True: #args.training:
-        if args.label=="Pitch Type" or args.label=="Pitching Position (P)":
-            csv = os.path.join(csv_path, args.view +"_pitcher.csv")
-        elif args.label=="Play Outcome":
-            csv= os.path.join(csv_path, args.view +"_batter.csv")
-            # csv = csv_path +args.view +"_batter.csv"
-        else:
-            print("USAGE: WRONG INPUT FOR -label ARGUMENT (Pitch Type, Play Outcome or Pitching Position (P))")
-            import sys
-            sys.exit()
-        training(save, csv, label_name = args.label) #, position="Stretch")
-    #else:
-    #    testing(save)
+
+    # if args.training:
+    if args.label=="Pitch Type" or args.label=="Pitching Position (P)":
+        csv_path = os.path.join(train_data_path, args.view +"_pitcher.csv")
+    elif args.label=="Play Outcome":
+        csv_path = os.path.join(train_data_path, args.view +"_batter.csv")
+        # csv = csv_path +args.view +"_batter.csv"
+    else:
+        print("USAGE: WRONG INPUT FOR -label ARGUMENT (Pitch Type, Play Outcome or Pitching Position (P))")
+        import sys
+        sys.exit()
+
+    label_name = args.label
+    csv = pd.read_csv(csv_path)
+    print("Number of data:", len(csv.index))
+    test_data_cutoff = len(csv.index)//20
+    if args.training:
+        csv = csv.head(len(csv.index)-test_data_cutoff) # csv.drop(csv.index[np.arange(test_data_cutoff)])
+        print("Number of data used for training", len(csv.index))
+    else:
+        csv = csv.drop(csv.index[np.arange(len(csv.index)-test_data_cutoff)]) # csv.head(test_data_cutoff)
+        print("Number of data used for testing", len(csv.index))
+
+    # DATA PREPARATION:
+    # 1. cut to certain Pitching position?
+    if len(cfg.position) > 0:
+        assert cfg.position=="Windup" or cfg.position=="Stretch", "Wrong pitching position filtering in config file"
+        csv = csv[csv["Pitching Position (P)"]==cfg.position]
+        print("Only pitching position ", cfg.position, "included in data")
+
+    # 2. the pitch type "eephus" is excluded because it only occurs once in the data
+    if label_name=="Pitch Type":
+        csv = csv[csv["Pitch Type"]!="Eephus"]
+
+    if cfg.five_players:
+        csv = Tools.cut_csv_to_pitchers(csv)
+        print("Only the five players with most data are included")
+
+    # try:
+    #     print("Pitching positions in data:", np.unique(csv["Pitching Position (P)"].values),
+    #     "Pitcher IDs included in data:", np.unique(csv["Pitcher"].values))
+    # except TypeError or KeyError:
+    #     pass
+        # print(len(csv))
+
+    # GET DATA
+    data, labels = Tools.get_data_from_csv(csv, label_name, min_length = cfg.nr_frames)
+    print("Data shape:", data.shape)
+    # data = np.load("data_test.npy")
+    # labels = np.load("labels_test.npy")
+
+    # Change labels to super classes (for the pitch type?)
+    if cfg.super_classes:
+        labels = Tools.labels_to_classes(labels)
+        print("Labels are transformed to superclasses")
+
+    ## POSSIBLE TO SHIFT AND FLIP DATA TO TRAIN ON MORE GENERAL DATA
+    # data_old, _ = Tools.shift_data(data, labels, shift_labels = False, max_shift=30)
+    # data_new = Tools.flip_x_data(data_old.copy()) #[:len(data_old)//2]
+    # data = np.append(data_new, data_old, axis=0)
+    # labels = np.append(labels, labels, axis=0)
+    # print(data.shape, labels.shape)
+
+    data = Tools.normalize(data)
+
+    if args.training:
+        training(data, labels, args.save_path)
+    else:
+        testing(data, labels, args.save_path)
+
 
 # TEST ON HIGH QUALITY VIDEOS
 

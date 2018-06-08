@@ -73,21 +73,6 @@ class Runner(threading.Thread):
         train_x = self.data[train_ind]
         test_x = self.data[test_ind]
 
-        # print(train_x[:10])
-        # print(np.any(np.isnull(train_x)))
-        # print(labels[:20])
-
-        # train_x = self.data[train_ind]
-        # me = np.mean(train_x)
-        # std = np.std(train_x)
-        # test_x = self.data[test_ind]
-        #
-        # train_x = (train_x - me)/std
-        # test_x = (test_x -me)/std
-        #
-        # print("mean of train", np.mean(train_x))
-        # print("mean of test", np.mean(test_x))
-
         train_t= labels[train_ind]
         test_t = labels[test_ind]
         labels_string_train = self.labels_string[train_ind]
@@ -95,10 +80,6 @@ class Runner(threading.Thread):
 
         print(train_x.shape, train_t.shape, labels_string_train.shape, test_x.shape, test_t.shape, labels_string_test.shape)
         #train_x, labels_string_train = Tools.balance(train_x, labels_string_train)
-        index_liste = []
-        for pitches in self.unique:
-            index_liste.append(np.where(labels_string_train==pitches)[0])
-        #print(index_liste)
         len_test = len(test_x)
         len_train = len(train_x)
 
@@ -200,7 +181,7 @@ class Runner(threading.Thread):
         acc_train  = []
         acc_balanced = []
         losses = []
-        print("Loss", "Acc test", "Acc balanced")
+        # print('{:20}'.format("Loss"), '{:20}'.format("Acc test"), '{:20}'.format("Acc balanced"), '{:20}'.format("Acc train"))
         # Run session for self.EPOCHS
         for epoch in range(self.EPOCHS + 1):
             for i, batch_x, batch_t in batches(train_x, train_t, nr_classes):
@@ -216,16 +197,14 @@ class Runner(threading.Thread):
             losses.append(np.around(loss_test, 2))
             acc_balanced.append(np.around(Tools.balanced_accuracy(pitches_test, labels_string_test),2))
             #Train Accuracy
+            if epoch%20==0:
+                print('{:>20}'.format("Loss"), '{:>20}'.format("Acc test"), '{:>20}'.format("Acc balanced"), '{:>20}'.format("Acc train"))
+
             out_train = sess.run(out, {x: train_x, y: train_t, training: False})
             pitches_train = Tools.decode_one_hot(out_train, self.unique)
             acc_train.append(np.around(Tools.accuracy(pitches_train, labels_string_train), 2))
-            print(loss_test, acc_test[-1], acc_balanced[-1])
-            if acc_train!=[]:
-                print("acc_train: ", acc_train[-1])
-            # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
-            #     saver.save(sess, self.SAVE)
-            #     print("model saved with name", self.SAVE)
-            #     return pitches_test, max(acc_test)
+            print('{:20}'.format(round(float(loss_test),3)), '{:20}'.format(acc_test[-1]), '{:20}'.format(acc_balanced[-1]), '{:20}'.format(acc_train[-1]))
+
         # AUSGABE AM ENDE
         print("\n\n\n---------------------------------------------------------------------")
         #print("NEW PARAMETERS: ", BATCHSIZE, self.EPOCHS, self.act, self.align, self.batch_nr_in_epoch, self.rate_dropout, self.learning_rate, len_train, self.n_hidden, self.nr_layers, self.network, nr_classes, nr_joints)
@@ -237,9 +216,9 @@ class Runner(threading.Thread):
         #print("MAXIMUM ACCURACY TRAIN: ", max(acc_train))
 
         #print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
-        print("True                Test                 ", self.unique)
+        print('{:20}'.format("Ground truth label"), '{:20}'.format("Predicted Output"))
         if len(self.unique)==1:
-            for i in range(10): #len(labels_string_test)):
+            for i in range(20): #len(labels_string_test)):
                 print(labels_string_test[i], pitches_test[i])
         else:
         # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))

@@ -9,13 +9,18 @@ class Tools:
 
     @staticmethod
     def get_data_from_csv(cf, label, min_length=160):
-        print("number of different games", len(np.unique(cf["Game"].values)), "length of csv file", len(cf.index))
+        """
+        Get joint trajectories from Dataframe cf and corresponding label of one column
+        @param cf: Dataframe with metadata and joint trajectories (cf_pitcher.csv or cf_batter.csv read in)
+        @param label: Name of one column of the dataframe cf
+        @param min_length: if the number of frames must be of a certain minimum length (varies between 160 and 167)
+        """
+        print("number of different games", len(np.unique(cf["Game"].values)), ", length of csv file", len(cf.index))
         data = []
         labels = []
         for i in cf.index:
             d = np.array(eval(cf.loc[i]["Data"]))
             if len(d)<min_length or pd.isnull(cf.loc[i][label]):
-                # print("too short or wrong label", cf.loc[i][label])
                 continue
             data.append(d[:min_length])
             labels.append(cf.loc[i][label])
@@ -27,7 +32,14 @@ class Tools:
 
     @staticmethod
     def cut_csv_to_pitchers(cf):
+        """
+        Take csv cf, and return a shorter version that contains only the data of the 5 pitchers with most data
+        (for pitch type simplification)
+        """
         def get_list_with_most(cf, column):
+            """
+            Get list of player ids of the players with most data
+            """
             pitcher = cf[column].values #.astype(int)
             statistic = sp.stats.itemfreq(pitcher) #.sort(axis = 0)
             #if column == "Pitch Type":
@@ -61,6 +73,9 @@ class Tools:
 
     @staticmethod
     def normalize01(data):
+        """
+        normalize data such that all values are between 0 and 1
+        """
         maxi = np.amax(data, axis=1)
         mini = np.amin(data, axis = 1)
         res = np.asarray([(data[:,i]-mini)/(maxi-mini+0.000001) for i in range(len(data[0]))])
@@ -69,6 +84,9 @@ class Tools:
 
     @staticmethod
     def renormalize(data, means, std, one_pitch=None):
+        """
+        from normalized data, calculate back to data with given mean and standard deviation of the previous data
+        """
         if one_pitch is None:
             res = np.asarray([data[:,i]*std+means for i in range(len(data[0]))])
             #print(res.shape)
@@ -92,6 +110,10 @@ class Tools:
 
     @staticmethod
     def get_paths_from_games(game_ids, view):
+        """
+        For given game ids, search through the file system to get the folder these plays belongs to
+        @param view: center field or side view
+        """
         dic = get_filesystem_dic("/scratch/nvw224/videos/atl/", view)
         #print(dic)
         dates_belonging = []
@@ -222,6 +244,10 @@ class Tools:
 
     @staticmethod
     def balance(data, labels):
+        """
+        Balance data such that for each label there is the same number of data for each class
+        (Not used in the current code)
+        """
         uni = np.unique(labels)
         index_liste = []
         for pitches in uni:
@@ -255,6 +281,9 @@ class Tools:
 
     @staticmethod
     def batches(x, y, batchsize=32):
+        """
+        Generate batches of data x and labels y of batchsize
+        """
         permute = np.random.permutation(len(x))
         for i in range(0, len(x)-batchsize, batchsize):
             indices = permute[i:i+batchsize]
@@ -262,6 +291,9 @@ class Tools:
 
     @staticmethod
     def accuracy_per_class(out_list, ground_truth_list):
+        """
+        calculate the accuracy for each class
+        """
         out = np.array(out_list)
         ground_truth = np.array(ground_truth_list)
         same = out[np.where(out==ground_truth)[0]]
@@ -281,6 +313,9 @@ class Tools:
 
     @staticmethod
     def confused_classes(out, labels):
+        """
+        print out probabilities for each class that it is confused with each other
+        """
         import operator
         for pitch in np.unique(labels):
             inds = np.where(labels==pitch)[0]
@@ -293,6 +328,9 @@ class Tools:
 
     @staticmethod
     def confusion_matrix(out,labels):
+        """
+        print confusion matrix for classes
+        """
         uni = np.unique(out) if len(np.unique(out))> len(np.unique(labels)) else np.unique(labels)
         data = []
         for i in uni:
@@ -308,6 +346,11 @@ class Tools:
 
     @staticmethod
     def accuracy_in_range(out, ground_truth, r):
+        """
+        Calculate the accuracy in range r
+        --> If the range is 3, and the output is 110 and the ground truth is 112, it would still be counted as
+        correct
+        """
         assert(len(out)==len(ground_truth))
         res = 0
         for i in range(len(out)):
@@ -317,16 +360,25 @@ class Tools:
 
     @staticmethod
     def balanced_accuracy(out_list, ground_truth_list):
+        """
+        Yields the average accuracy per class
+        """
         acc = Tools.accuracy_per_class(out_list, ground_truth_list)
         frequ = np.array(list(acc.values()))
         return np.sum(frequ/float(len(frequ)))
 
     @staticmethod
     def accuracy(out, ground_truth):
+        """
+        Calculate the accuracy
+        """
         return np.sum(np.array(ground_truth)==np.array(out))/float(len(out))
 
     @staticmethod
     def do_pca(data, nr_components):
+        """
+        fits and transforms data into nr_components dimensions with PCA
+        """
         from sklearn.decomposition import PCA
         M, frames, joi, xy = data.shape
         res = data.reshape(M,frames,joi*xy)
@@ -342,23 +394,25 @@ class Tools:
         return new
 
     @staticmethod
-    def shift_data(data, labels, shift_labels= True, max_shift=30):
+    def shift_data(data, labels, shift_labels= True, shift_left=20, shift_right=20):
+        """
+        shifts data and labels by a random number between -max_shift and max_shift
+        """
         new_data=[]
         for i in range(len(data)):
-            if shift_labels:
-                bound_shift = min(max_shift, len(data[0])-max_shift-labels[i])
-            else:
-                bound_shift = max_shift
-            # print(bound_shift)
-            shift = np.random.randint(-max_shift, max_shift)
+            shift = np.random.randint(-shift_left, shift_right)
             new = np.roll(data[i], shift, axis=0)
             if shift_labels:
-                labels[i] = labels[i]+shift-max_shift
-            new_data.append(new[max_shift:len(new)-max_shift])
+                labels[i] = labels[i]+shift # -max_shift
+            new_data.append(new) #[max_shift:len(new)-max_shift])
         return np.array(new_data), labels
 
     @staticmethod
     def flip_x_data(data, x = 0):
+        """
+        Return data of same shape where one coordinate (at index x) is flipped
+        --> left to right movement is turned into a right to left movement
+        """
         for i in range(len(data)):
             mean = np.mean(data[i, :, :, x])
             flipped = (data[i, :,:,x]-mean)*(-1)
@@ -394,6 +448,10 @@ class Tools:
 
     @staticmethod
     def stretch_data(data, factor):
+        """
+        Stretch the joint trajectories by a certain factor by interpolation
+        Return new data
+        """
         nr_ex, l, j, co = data.shape
         indices = []
         c = 0

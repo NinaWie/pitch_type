@@ -16,11 +16,13 @@ flags = tf.app.flags
 #flags.DEFINE_string('main_directory', path_of_parent_dir, 'parent directory of current subdirectory, required to load data etc')
 
 # PARAMETERS: FILTERING OF TRAINING DATA:
+flags.DEFINE_integer('nr_frames', 160, "number of frames that play should be cut to")
+
 flags.DEFINE_boolean('five_players', False, 'set true if the network should only be trained on the five players with most data')
 flags.DEFINE_boolean('super_classes', False, 'set true if the pitch type labels should be sorted into three superclasses (Fastballs, Breaking Balls and Changeups) instead of 10 classes')
 flags.DEFINE_string('position', "", 'for training to recognize pitch types, the data can be filtered to include only one Pitching position. Set this variable to Windup or Stretch if the data should be filtered this way')
 # NETWORK CONSTANTS
-flags.DEFINE_integer('epochs', 100, "Number of epochs to train")
+flags.DEFINE_integer('epochs', 200, "Number of epochs to train")
 flags.DEFINE_integer('batch_size', 40, "Batch size")
 flags.DEFINE_integer('batches_per_epoch', 100, "Number of batches in each epoch")
 flags.DEFINE_float('dropout', 0, "Dropout rate if included in model")
