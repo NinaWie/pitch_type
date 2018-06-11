@@ -7,7 +7,6 @@ class Model:
 
     def conv1d_with_parameters(self, x, nr_classes, training, rate_dropout, act, first_conv_filters, first_conv_kernel, second_conv_filter,
     second_conv_kernel, first_hidden_dense, second_hidden_dense):
-        print("dropout", rate_dropout)
         shape = x.get_shape().as_list()
         net = tf.reshape(x, (-1, shape[1], shape[2]*shape[3]))
         if first_conv_filters!=0:

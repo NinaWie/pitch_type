@@ -1,2 +1,2 @@
-model_checkpoint_path: "pitch_type"
-all_model_checkpoint_paths: "pitch_type"
+model_checkpoint_path: "play_outcome"
+all_model_checkpoint_paths: "play_outcome"

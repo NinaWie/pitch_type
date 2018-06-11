@@ -438,7 +438,10 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
                 if abs(mean_slope-mean_slope_previous)<0.4:
                     for i, b in enumerate(balls):
                         frame_count = len(balls)-i
-                        ball_trajectory.append([b.center[0], b.center[1], t-1-frame_count])
+                        # it might happen that the previous ball detection go until frame x, and then the ball is lost,
+                        # but the next ball detection starts from frame x again. Thus, check if x already in the ball_trajectory
+                        if len(ball_trajectory)==0 or t-1-frame_count not in np.asarray(ball_trajectory)[:,2]:
+                            ball_trajectory.append([b.center[0], b.center[1], t-1-frame_count])
 
                 balls = [] # new ball list
             else: # new ball found --> add to ball list, continue

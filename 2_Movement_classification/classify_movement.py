@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # input_data_list = [[path_outputs+ "old_videos/cf/"]] # , [path_outputs+ "old_videos/sv/"]], [path_outputs+ "new_videos/cf/",
     # csv_list = [csv_path + "cf_data.csv"] #, csv_path + "csv_gameplay.csv", csv_path + "BOS_SV_metadata.csv"]
 
-    # if args.training:
+
     if args.label=="Pitch Type" or args.label=="Pitching Position (P)":
         csv_path = os.path.join(train_data_path, args.view +"_pitcher.csv")
     elif args.label=="Play Outcome":
@@ -81,12 +81,22 @@ if __name__ == "__main__":
     label_name = args.label
     csv = pd.read_csv(csv_path)
     print("Number of data:", len(csv.index))
+
+    # TEST DATA: 5% of the csv file is used as test data. Random indices are saved and excluded during training,
+    # and then the network can be tested on these 5%.
     test_data_cutoff = len(csv.index)//20
+    # test_data_indices = np.random.choice(np.arange(len(csv.index)), size = test_data_cutoff, replace=False)
+    # print(test_data_indices)
+    # np.save("test_indices.npy", test_data_indices)
+    test_data_indices = np.load("test_indices.npy")
+
     if args.training:
-        csv = csv.head(len(csv.index)-test_data_cutoff) # csv.drop(csv.index[np.arange(test_data_cutoff)])
+        csv = csv.drop(csv.index[test_data_indices])
+        # csv = csv.head(len(csv.index)-test_data_cutoff) # csv.drop(csv.index[np.arange(test_data_cutoff)])
         print("Number of data used for training", len(csv.index))
     else:
-        csv = csv.drop(csv.index[np.arange(len(csv.index)-test_data_cutoff)]) # csv.head(test_data_cutoff)
+        csv = csv.iloc[test_data_indices]
+        # csv = csv.drop(csv.index[np.arange(len(csv.index)-test_data_cutoff)]) # csv.head(test_data_cutoff)
         print("Number of data used for testing", len(csv.index))
 
     # DATA PREPARATION:

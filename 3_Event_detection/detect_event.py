@@ -65,45 +65,16 @@ def foot_to_ground(batter, release = 90, start_run = None, relevant_joints = [7,
     (if not given, release_frame+30 is taken)
 
     batter: array of nr_frames*nr_joints*nr_coordinates
-    release:
+    release: ball release frame
+    start_run: frame when the batter starts to run towards first base
     relevant_joints_list: the joints which should be taken into account for the movement
     relevant_coordinate: set to the index corresponding to the x coordinate (left-right)
-
-    OTHER VERSION:
-    idea: take only left or right foot, depending which one is lifted more (problem: position of foot in beginning)
-    in arguments: relevant_joints = [[7,10],[8,11]]
-
-    mean_right = np.mean(batter[:, relevant_joints[0], 1], axis=1)
-    mean_left = np.mean(batter[:, relevant_joints[1], 1], axis=1)
-    print(mean_right.shape)
-    means = np.array([mean_right, mean_left])
-    print(means.shape)
-    means_means = np.mean(means[:, :release-20], axis = 1)
-    start = release-20
-    left_or_right = np.argmin(np.amin(means[:, start:first_move] - np.swapaxes(np.array([means_means for _ in range(50)]), 0,1), axis = 1))
-    print("left_right", left_or_right)
-    print(np.amin(means, axis = 1).shape)
-    print("minimums", np.amin(means, axis = 1))
-    foot_up = start + np.argmin(means[left_or_right, start:first_move])
-    print("foot_up", foot_up)
-    mean_ground = np.mean(means[left_or_right, :foot_up-10])
-    print("mean", mean_ground)
-
-    #foot_down_gradient = first_move_batter_gradient(batter[:first_move],  relevant_joints_list=relevant_joints, relevant_coordinate=1, cutoff=4, minimum_sequ_len=1)
-    foot_down_gradient = foot_up + np.argmin(np.absolute(means[left_or_right, foot_up:foot_up+10]-mean_ground))# foot_up - 2+ np.where(np.gradient(target_sequence)[foot_up-70+2:]<0.1)[0][0]
-
-    plt.plot(means[left_or_right, foot_up:foot_up+10])
-    plt.plot([mean_ground for _ in range(10)])
-    plt.show()
     """
     if start_run is None:
         start_run = release+30
     leg_sequence = np.mean(batter[:, relevant_joints, relevant_coordinate], axis=1)
     start = release-20
-    foot_up = start + np.argmin(leg_sequence[start:start_run])
-    # if foot_up>start_run-5:
-    #    print("Too close to first step, not possible")
-    #    return None, None
+    foot_up = start + np.argmin(leg_sequence[start:start_run-10])
     mean_ground = np.mean(leg_sequence[:foot_up-10])
     foot_down_gradient = foot_up + np.argmin(np.absolute(leg_sequence[foot_up:foot_up+10]-mean_ground))
     # print("in function: first step", start_run, "foot highest", foot_up, "foot down", foot_down_gradient)

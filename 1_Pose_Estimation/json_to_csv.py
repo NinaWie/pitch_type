@@ -26,10 +26,10 @@ def outcome_simplification(out):
 VIEW = "sv"
 # SPECIFY PATH OF JSON FILES
 # path = "pitch_type/Pose_Estimation/sv_outputs/"
-path = "/Volumes/Nina Backup/finished_outputs/old_videos/cf/"
+path = "INSERT PATH TO JSON FILES CONTAINING POSE ESTIMATION OUTPUTS"# "/Volumes/Nina Backup/finished_outputs/old_videos/cf/"
+CSV_PATH = "INSERT SOME PATH TO THE METADATA CSV" # os.path.join("..", "train_data", VIEW+"_data.csv")
 
-
-cf = pd.read_csv(os.path.join("..", "train_data", VIEW+"_data.csv")) # previous metadata file
+cf = pd.read_csv(CSV_PATH) # previous metadata file
 print("nr json files", len(os.listdir(path)))
 
 # create data frame for each player
@@ -38,6 +38,7 @@ df_batter = pd.DataFrame(columns=["Game", "Play Outcome", "all outcomes", "Batte
 
 print("nr first cf", len(np.unique(cf["Game"].values)))
 count = 0
+# iterate through previous metadata file
 for i, name in enumerate(np.unique(cf["Game"].values)): # for each game id
     # get line in metadata
     line = cf[cf["Game"]==name]

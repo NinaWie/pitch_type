@@ -124,27 +124,6 @@ def player_localization(handle_one ,old_array, low_thresh=0.1, higher_tresh = 0.
         #     res = np.array([[0,0] for i in range(18)])
     return res
 
-def mix_right_left_old(df, index_list):
-    """
-    ---- OLD VERSION: only swaps if both are wrong, and df needs to be interpolated (cannot contain missing values) ----
-    returns an array of same size as df, with the cleaned up joint trajectories, i.e. when left and right are swapped, they are swapped back,
-    and if just one joint is suddenly in the spot of the left one, it is set as a missing value
-    df: an array of shape number_frames * number_joints * number_coordinates
-    index_list: containing the indizes of the corresponding joints: [[index_left_knee, index_right_knee], [index_left_ankle, index_right_ankle], ...]
-    """
-    tic = time.time()
-    player=player+'_player'
-    for i in range(1, len(df)-1):
-        if abs(np.asarray(df[player][i])[index[1]][1]-np.asarray(df[player][i-1])[index[1]][1])+abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[1]][0])>abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[1]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[1]][1]) and abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1])+abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[0]][0])>abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[0]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1]):
-
-            left=df[player][i][index[1]]
-            right=df[player][i][index[0]]
-            df[player][i][index[1]]=right
-            df[player][i][index[0]]=left
-    toc = time.time()
-    #print("Time for mix right left", toc-tic)
-    return df
-
 def mix_right_left(df, index_list, factor = 3):
     """
     returns an array of same size as df, with the cleaned up joint trajectories, i.e. when left and right are swapped, they are swapped back,

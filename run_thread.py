@@ -270,10 +270,10 @@ class Runner(threading.Thread):
                 print('{:>20}'.format("Loss"), '{:>20}'.format("Acc test"), '{:>20}'.format("Acc balanced"), '{:>20}'.format("Acc train"))
             print('{:20}'.format(round(float(loss_test),3)), '{:20}'.format(acc_test[-1]), '{:20}'.format(acc_balanced[-1]), '{:20}'.format(acc_train[-1]))
 
-            # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
-            #     saver.save(sess, self.SAVE)
-            #     print("model saved with name", self.SAVE)
-            #     return pitches_test, max(acc_test)
+            if acc_test[-1]>0.96 and acc_balanced[-1]>=0.92 and self.SAVE is not None:
+                saver.save(sess, self.SAVE)
+                print("model saved with name", self.SAVE)
+                return pitches_test, max(acc_test)
         # AUSGABE AM ENDE
         print("\n\n\n---------------------------------------------------------------------")
         #print("NEW PARAMETERS: ", BATCHSIZE, self.EPOCHS, self.act, self.align, self.batch_nr_in_epoch, self.rate_dropout, self.learning_rate, len_train, self.n_hidden, self.nr_layers, self.network, nr_classes, nr_joints)

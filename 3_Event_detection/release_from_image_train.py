@@ -285,7 +285,7 @@ if __name__ == "__main__":
         if s not in {'False', 'True'}:
             raise ValueError('Not a valid boolean string')
         return s == 'True'
-    parser = argparse.ArgumentParser(description='Train neural network to find batter first step')
+    parser = argparse.ArgumentParser(description='Train neural network to classify whether a frame is a ball release frame')
     parser.add_argument('-training', default= "True", type=boolean_string, help='if training, set True, if testing, set False')
     parser.add_argument('-model_save_path', default="../saved_models/release_model", type=str, help='if training, path to save model, it testing, path to restore model')
     args = parser.parse_args()
