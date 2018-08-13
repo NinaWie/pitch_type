@@ -14,7 +14,7 @@ sys.path.append("..")
 from run_events import Runner
 
 from utils import Tools
-from test import test
+from test_script import test
 # path_outputs = "/Volumes/Nina Backup/finished_outputs/"
 # test_json_files = "/Volumes/Nina Backup/high_quality_outputs/"
 # test_data_path = "/Users/ninawiedemann/Desktop/UNI/Praktikum/high_quality_testing/pitcher/"
@@ -112,23 +112,22 @@ def hs_release(joints_array, handedness=None):
     joints_array: the set of trajectories of the pitcher
     handedness: if the handedness is known, it can be taken into account. Otherwise simply the higher point is selected
     """
-    wrist_ellbow_right = np.mean(joints_array[j, :, 1:3, 1], axis = 1) # y coordinate of ellbow and wrist
-    wrist_ellbow_left = np.mean(joints_array[j, :, 4:6, 1], axis = 1)
-    shoulders = np.mean(joints_array[j,: ,[0,3],1], axis = 0) # y coordinate of shoulders
-    # print(shoulders.shape)
+    wrist_ellbow_right = np.mean(joints_array[:, 1:3, 1], axis = 1) # y coordinate of ellbow and wrist
+    wrist_ellbow_left = np.mean(joints_array[:, 4:6, 1], axis = 1)
+    shoulders = np.mean(joints_array[: ,[0,3],1], axis = 1) # y coordinate of shoulders
     if  handedness=="R":# min(wrist_ellbow_right-shoulders)<min(wrist_ellbow_left-shoulders):
         higher = np.argmin(wrist_ellbow_right-shoulders)
-        print("higher shoulders right", higher)
+        # print("higher shoulders right", higher)
     elif handedness == "L":
         higher = np.argmin(wrist_ellbow_left-shoulders)
-        print("higher shoulders left", higher)
+        # print("higher shoulders left", higher)
     else:
-        if min(wrist_ellbow_right-shoulders)<min(wrist_ellbow_left-shoulders):
+        if min(wrist_ellbow_right-shoulders)< min(wrist_ellbow_left-shoulders):
             higher = np.argmin(wrist_ellbow_right-shoulders)
-            print("higher shoulders right", higher)
+            # print("higher shoulders right", higher)
         else:
             higher = np.argmin(wrist_ellbow_left-shoulders)
-            print("higher shoulders left", higher)
+            # print("higher shoulders left", higher)
     return higher
 
 def release_frame_2Dfrom_video(video_path, bbox=None, model = "saved_models/release_model"):

@@ -15,7 +15,7 @@ import sys
 sys.path.append("..")
 
 from run_thread import Runner
-from test import test
+from test_script import test
 
 
 
@@ -28,7 +28,8 @@ def boxplots_testing(labels, results):
     # Delete the rows for which there is no result (can only happen if threshold is used)
     inds = np.where(np.isnan(results))
     labels = np.delete(labels, inds)
-    print("For plotting the results, ", len(inds[0]), " data were deleted because no results were available (corresponds to", len(inds[0])*100/float(len(results)), "%)")
+    if len(inds[0])>0:
+        print("For plotting the results, ", len(inds[0]), " data were deleted because no results were available (corresponds to", len(inds[0])*100/float(len(results)), "%)")
     results = np.delete(results, inds)
 
     deviation = labels-results
@@ -79,6 +80,10 @@ def get_test_data(vid_path, csv_path, start=0, end=160, image_resize_width = 55,
             continue
 
         # get bounding box for pitcher
+        if not os.path.exists(os.path.join(vid_path, files +".dat")):
+            print("file skipped because no metadata available:", files)
+            continue
+
         for i in open(os.path.join(vid_path, files +".dat")).readlines():
             datContent=ast.literal_eval(i)
         bottom_p=datContent['Pitcher']['bottom']
@@ -144,7 +149,6 @@ def testing(test_dates, restore_path, start = 0, end=160):
         # - TAKE FRAME WITH HIGHEST OUTPUT
         # - TAKE FIRST FRAME FOR WHICH THE OUTPUT EXCEEDS A THRESHOLD
         def highest_prob(outputs):
-            print(outputs)
             return np.argmax(outputs)
         def first_over_threshold(outputs, thresh=0.8):
             over_thresh = np.where(outputs>thresh)[0]
@@ -163,24 +167,6 @@ def testing(test_dates, restore_path, start = 0, end=160):
         print("finished processing for date", date, "now results:", final_results)
     # Evaluation
     boxplots_testing(final_labels, final_results)
-
-
-def testing_singlevideo(vid_path, csv_path, restore_path):
-    """
-    get release frame label for a single video (put in folder vid_path together with .dat file)
-    """
-    data, label = get_test_data(vid_path, csv_path, start=0, end=160, image_resize_width = 55, image_resize_height = 55, max_release_frame = 120, min_release_frame = 60)
-
-    examples, width, height = data.shape
-    data = np.reshape(data, (examples, width, height, 1))
-    print(data.shape, label)
-
-    lab, out = test(data, restore_path)
-    print([round(elem,2) for elem in out[:, 1]])
-    highest = np.argmax(out[:, 1])
-    print("frame index predicted: ", highest)
-    # np.save("predicted_frame", data[highest])
-    # np.save("all_frames", data)
 
 
 def get_train_data(train_dates, video_path, csv_path, image_resize_width = 55, image_resize_height = 55, max_release_frame = 120, min_release_frame = 60):
@@ -210,6 +196,11 @@ def get_train_data(train_dates, video_path, csv_path, image_resize_width = 55, i
                 continue
 
             # get bounding box for pitcher
+            # skip if no metadata is available:
+            if not os.path.exists(os.path.join(vid_path, files +".dat")):
+                print("file skipped because no metadata available:", files)
+                continue
+
             for i in open(os.path.join(vid_path, files +".dat")).readlines():
                 datContent=ast.literal_eval(i)
             bottom_p=datContent['Pitcher']['bottom'] # optional: make bounding box even smaller
@@ -266,18 +257,18 @@ def training(dates, save_path, video_path, csv_path):
 # path_input = "/scratch/nvw224/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
 # cf_data_path = "/scratch/nvw224/cf_pitcher.csv" # Statcast labels, download from google drive
 
-path_input = "/Volumes/Nina Backup/videos/atl" # TEST DATA: Path to input data (videos and region of interest dat files)
+path_input = os.path.join("..", "train_data", "ATL") # TEST DATA: Path to input data (videos and region of interest dat files)
 csv_path = os.path.join("..","train_data", "cf_pitcher.csv")
 
 
 # THESE DATES WERE USED FOR TRAINING THE SAVED MODEL
-train_dates = ["2017-04-19"] #, "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07", "2017-04-15"# letztes falsch
+train_dates = ["2017-07-16", "2017-05-02", "2017-05-03", "2017-05-07", "2017-05-24", "2017-06-07"] # "2017-05-20", , , "2017-04-15"]# letztes falsch
  # "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17", "2017-04-14", "2017-04-18",
- # "2017-05-02", "2017-05-06", "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16"]
+ # "2017-05-02", "2017-05-06", "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", ]
 
-test_dates = ['2017-07-19', '2017-06-09'] #, '2017-07-15', '2017-05-01']
+test_dates = ['2017-05-22', '2017-05-04'] #, '2017-07-15', '2017-05-01'], '2017-06-09', '2017-07-19',
  #'2017-06-16', '2017-04-16', '2017-05-05', '2017-04-20', '2017-05-18', '2017-06-24', '2017-06-20', '2017-05-25',
- # '2017-05-17', '2017-05-04', '2017-06-05', '2017-06-06', '2017-04-17', '2017-05-22', '2017-07-18', '2017-07-14','2017-06-08']
+ # '2017-05-17',  '2017-06-05', '2017-06-06', '2017-04-17', , '2017-07-18', '2017-07-14','2017-06-08']
 # ERLEDIGT: '2017-06-17', '2017-05-21', '2017-06-21'
 
 if __name__ == "__main__":

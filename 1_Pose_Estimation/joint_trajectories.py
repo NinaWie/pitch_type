@@ -1,5 +1,5 @@
 import time
-from torch import np
+import numpy as np
 import argparse
 import pandas as pd
 from os.path import isfile, join
@@ -20,17 +20,6 @@ parser.add_argument('output_folder', metavar='DIR', # output dir
                     help='folder where to store the json files with the output coordinates')
 parser.add_argument('center',  #
                     help='specify what kind of file is used for specifying the center of the target person: either path_to_json_dictionary.json, or datPitcher, or datBatter')
-# restore_first_move = "/scratch/nvw224/pitch_type/saved_models/first_move_more"
-# restore_release = "/scratch/nvw224/pitch_type/saved_models/release_model"
-# restore_position = "/scratch/nvw224/pitch_type/saved_models/modelPosition"
-
-# example arg: /Volumes/Nina\ Backup/videos/atl/2017-04-15/center\ field/490266-0aeec26e-80f7-409f-8ae7-a40b834b3a81.mp4
-
-#dates = ["2017-04-14", "2017-04-18", "2017-05-02", "2017-05-06"] # , "2017-05-19", "2017-05-23", "2017-06-06", "2017-06-10", "2017-06-18", "2017-06-22", "2017-07-04", "2017-07-16",
-#"2017-04-15", "2017-04-19", "2017-05-03", "2017-05-07", "2017-05-20", "2017-05-24", "2017-06-07", "2017-06-11", "2017-06-19", "2017-06-23", "2017-07-05", "2017-07-17"]
-# only first two rows von den im cluster angezeigten
-# for date in dates:
-
 
 
 args = parser.parse_args()
@@ -39,36 +28,21 @@ out_dir = args.output_folder
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 
-# FOR BATTER FIRST MOVEMENT
-# csv = pd.read_csv("/scratch/nvw224/csv_gameplay.csv", delimiter=";")
-# outcomes = csv["Play Outcome"].values
-# files = csv["play_id"].values.tolist()
+# If the starting positions are saved in a json file (for high quality videos)
 if args.center[-5:] == ".json":
     with open(args.center, "r") as infile:
         centers = json.load(infile)
 
 
-for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410-f559-464f-acb0-74133d7742e3"]:
-# ['5093fe5c-28d7-4229-9c3f-d1ccb6d12f71', 'a72a6e17-1644-44e8-9844-1ec65c89ebc5', '68206417-6071-4560-b035-e44bbbec3bab', '495dbb44-facf-4c33-adce-c859631c8a43', '4e773e7b-ccbe-445e-aec3-fde4397fbfea', '842244eb-a21a-4ee8-bb40-28ee3bcd73b9']:
-# ['847aeac1-54cd-4ab2-923b-f65189ac7655', 'da6888ec-4216-4835-8960-1557ac30802b', '1b1bf2f3-bdea-417a-aee0-07d2a01a9ce7', 'd86799fd-c93b-44e2-9d9d-da7bfd8f962f', '3af5ba29-535a-4050-9aec-e1687bd47c99', 'c82635e1-ad3c-40de-976e-7d50808b4b51']:
-    # fi = fi_without+".mp4"
-# ['5c909a14-f8ad-4228-86f4-c0c6f54699ab', '60c8b309-e459-4a30-b05f-4f6cfaf4ad95.mp4', '35dc98ef-ffb7-4bb0-b40d-0e646d2f2aaf.mp4','187506da-d7d9-40e9-8e91-a09575a9a150.mp4','5093fe5c-28d7-4229-9c3f-d1ccb6d12f71.mp4', '6a0c421d-86a5-423d-98f2-f712d0d579f5.mp4', 'd30e5ad6-0d31-4e9a-908b-decc7599d6be.mp4', '0416fe69-372e-45ae-81df-25adea895978.mp4', '458ee73e-7e22-4919-928e-e904a148fe0c.mp4']: #listdir(inp_dir): # ["cole_loncar.mp4"]: #["40mph_1us_1.2f_170fps_40m_sun.avi"]:
-    if fi[0]=="." or fi[-4:]!=".mp4" or fi[:-4]+".json" in listdir(out_dir): # or fi[:-4]+".json" in listdir(out_dir+"handle_one/"): ["#8 RHP Cole Johnson (2).mp4"]: #
-    	print("already there or wrong ending", fi)
-    	continue
-
-    ### for batter first movemnet
-    # try:
-    #     ind = files.index(fi[:-4])
-    #     if "Hit into" not in outcomes[ind]:
-    #         print("different play outcome", outcomes[ind])
-    #         continue
-    # except ValueError:
-    #     print("not in csv")
-    #     continue
+for fi in listdir(inp_dir):
+    # check if file was already processed
+    if fi[0]=="." or (fi[-4:]!=".mp4" and fi[-4:]!=".m4v"):
+        print("wrong input file (Must be .mp4 or .m4v!)", fi)
+        continue
 
     f = os.path.join(inp_dir, fi)
 
+    # if starting position is saved in dat files (for MLBAM videos)
     if args.center[:3] == "dat":
         target = args.center[3:]
         try:
@@ -78,43 +52,34 @@ for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410
             print("dat file exists:", os.path.exists(f+".dat"))
             print("dat file not found", fi)
             continue
+        # bounding box
         bottom_b=datContent[target]['bottom']
         left_b=datContent[target]['left']
         right_b=datContent[target]['right']
         top_b=datContent[target]['top']
-        print(bottom_b, left_b, right_b, top_b)
+        print("bounding box for starting position from dat file:", bottom_b, left_b, right_b, top_b)
+        # center of bounding box = start position
         center = np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
+    # if starting position is saved in json file
     elif args.center[-5:] == ".json":
         try:
-            center = centers[fi[:-4]] # np.array([abs(left_b-right_b)/2., abs(bottom_b-top_b)/2.])
+            center = centers[fi[:-4]]
         except KeyError:
-            print("file does not exist in json file with center points")
+            print("the coordinates for this video are not contained in the json file")
             continue
-        left_b = 0 # change for batters first move
+        left_b = 0
         top_b = 0
+    # no dat and no json file put as argument
     else:
         print("wrong input for center argument: must be either the file path of a json file containing a dictionary, or datPitcher or datBatter")
         continue
     ##############
 
-    #center_dic={}
     tic=time.time()
     print("input file path of video:", f)
     video_capture = cv2.VideoCapture(f)
-    #video_capture.set(cv2.CAP_PROP_POS_FRAMES, 100)
-    #x, y = centers[fi[:-4]]#np.array([abs(top_p+bottom_p)/2., abs(left_p+right_p)/2.])
-    # center = centers[fi[:-4]] # [1200,700] # center between hips - known position of target person
-#    print(fi, "center: ", center_dic["Pitcher"])
 
     tic1 = time.time()
-    events_dic = {}
-    events_dic["video_directory"]= inp_dir
-    events_dic["bbox_batter"] = [0,0,0,0]
-    events_dic["bbox_pitcher"] = [0,0,0,0]
-    events_dic["start_time"]=time.time()
-    rel = []
-    #handle_one_res = []
-
 
     # LOCALIZATION
     old_norm=10000
@@ -123,25 +88,21 @@ for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410
     found = False
     pitcher_array = []
 
-    #### for batter first
-    # videos = []
-
 
     # Not found until there is a frame with a person detected
     while not found:
-        #len(df[player][i])==0:
         ret, frame = video_capture.read()
         if args.center[-5:] == ".json":
             bottom_b = len(frame)
             right_b = len(frame[0])
-        out = handle_one(frame[top_b:bottom_b, left_b:right_b]) # changed batter first move
+        out = handle_one(frame[top_b:bottom_b, left_b:right_b])
         for person in range(len(out)):
             hips=np.asarray(out[person])[indices]
             hips=hips[np.sum(hips,axis=1)!=0]
             if len(hips)==0:
                 continue
             mean_hips=np.mean(hips,axis=0)
-            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
+            norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1])
             if norm<old_norm:
                 found = True
                 loc=person
@@ -162,7 +123,6 @@ for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410
 
     # boundaries to prevent bounding box from being larger than the frame
     boundaries = [0, len(frame[0]), 0, len(frame)]
-    # print("boundaries = ", boundaries)
 
     # from first detection, form bbox for next fram
     bbox = define_bbox(first_frame, boundaries)
@@ -173,40 +133,28 @@ for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410
     # save detection in a second array, in which the missing values are constantly filled with the last detection
     new_res = first_frame.copy()
 
-    # print("first output", pitcher_array[-1])
-
     # START LOOP OVER FRAMES
     while True:
-# Capture frame-by-frame
-
+        # Read frame by frame
         ret, frame = video_capture.read()
         if frame is None:
             print("end of video capture")
             break
-        # bbox = [left_b, right_b, top_b, bottom_b]
         pitcher = frame[bbox[2]:bbox[3], bbox[0]:bbox[1]]
-
-        ### for batter first_
-        # videos.append(np.mean(pitcher, axis = 2).tolist())
 
         # pose estimation network
         out = handle_one(pitcher)
         out = np.array(out)
-        # print("out", [o.tolist() for o in out])
 
         # add bbox edges such that output coordinates are for whole frame
         out[:, :,0]+=bbox[0]
         out[out[:, :,0]==bbox[0]] = 0 # if the output was 0 (missing value), reverse box addition
         out[:, :,1]+=bbox[2]
         out[out[:, :,1]==bbox[2]] = 0
-        # print("output network,", whole_box, "global array", globals()['old_array'])
-        # print("out", [o.tolist() for o in out])
 
         # old array is the detected person in the previous frame - localize which person of out corresponds
         out = player_localization(out, globals()['old_array'])
-        #l = [np.sum(np.asarray(elem) ==0) for elem in whole_box] # in order to simply take detection with least missing values
         out = np.array(out)
-        # print("localized", out.tolist())
 
         # if frame is missing: continue (do not update bounding box and previous frame detection)
         if np.all(out==0):
@@ -243,131 +191,12 @@ for fi in listdir(inp_dir):#["example_1.mp4"]: #inp_dir: #_without in ["f4ea3410
     for k in range(len(pitcher_array[0])):
         for j in range(2):
             pitcher_array[:,k,j] = lowpass(pitcher_array[:,k,j]-pitcher_array[0,k,j], cutoff = 1, fs = fps)+pitcher_array[0,k,j]
-    # pitcher_array = df_coordinates(pitcher_array, do_interpolate = True, smooth = True, fps = 20)
 
     # SAVE IN JSON FORMAT
     game_id = fi[:-4]
-    file_path_pitcher = out_dir+game_id
-    print(events_dic, file_path_pitcher)
-    to_json(pitcher_array, events_dic, file_path_pitcher)
-
-    ### batter first move
-    # with open(out_dir+game_id+"_video.json", "w") as outfile:
-    #      json.dump(videos, outfile)
+    output_path = os.path.join(out_dir,game_id)
+    to_json(pitcher_array, output_path)
+    print("saved as", output_path)
 
     toctoc=time.time()
-    print("Time for whole video to array: ", toctoc-tic)
-
-
-        # # FOR MULTIPLE BBOXES: Version 2: whole_box nehmen, lokalisieren, dann falls unter threshold ersetzen mit smaller boxen werten
-        # whole_box = handle_one(pitcher)
-        # # print("output network,", whole_box, "global array", globals()['old_array'])
-        # # whole_box_person, _ = player_localization(whole_box, globals()['old_array'])
-        # l = [np.sum(np.asarray(elem) ==0) for elem in whole_box]
-        # whole_box_person = whole_box[np.argmin(l)]
-        # if np.all(np.array(whole_box_person)==0):
-        #     pitcher_array.append(np.array(whole_box_person))
-        #     continue
-        #
-        # length = len(pitcher)//2
-        # pit1 = pitcher[:length]
-        # pit2 = pitcher[length:]
-        # #print(pitcher.shape, pit1.shape, pit2.shape)
-        # out1 = np.array(handle_one(pit1))
-        # out2 = np.array(handle_one(pit2))
-        # if len(out1)==0:
-        #     out1 = np.zeros((1, 18,2))
-        # if len(out2)==0:
-        #     out2 = np.zeros((1, 18,2))
-	    # #print("out2", out2)
-        # #print("out1", out1)
-        # out2[:,:,1]+=length
-        # out2[out2[:,:,1]==length] = 0
-        #
-        # #print("before refine", whole_box_person)
-        # new_res = whole_box_person.copy()
-        # new_res[np.where(new_res==0)] = globals()['old_array'][np.where(new_res==0)]
-        # # print("before and with zeros filled in", new_res)
-        # for i in range(len(whole_box_person)):
-        #     if i<6 or i>11:
-        #         out_small = out1[:,i]
-        #     else:
-        #         out_small = out2[:, i]
-        #     for j in range(len(out_small)):
-        #         if np.linalg.norm(new_res[i]-out_small[j])<30:
-        #             whole_box_person[i] = out_small[j]
-        # # print("after refine", whole_box_person)
-        # globals()['old_array'] = whole_box_person.copy()
-        # out = whole_box_person
-        # # for any number of bboxes
-        # out[:,0]+=bbox[0]
-        # out[out[:,0]==bbox[0]] = 0
-        # out[:,1]+=bbox[2]
-        # out[out[:,1]==bbox[2]] = 0
-        # # print("out", out)
-        # # # without box or one box
-        # # out = handle_one(pitcher)
-        # # res, globals()['old_array'] = player_localization(out, globals()['old_array'])
-        # # res = np.array(res)
-        # # pitcher_array.append(res)
-        #
-        # #print("res ohne vorherigen eingefuellt", res)
-        #
-        # pitcher_array.append(out)
-        # old_res = pitcher_array[-2]
-        # new_res = out.copy()
-        # new_res[np.where(new_res==0)]=old_res[np.where(new_res==0)]
-        # if not np.all(out==0):
-        #     bbox = define_bbox(new_res, boundaries)
-        # print(bbox)
-
-
-
-
-    # # FOR MULTIPLE BBOXES: Version 1: meiste in out2, dann auffuellen mit irgendeinem aus out1, dann falls 0 auffuellen mit whole box
-    # length = len(pitcher)//2
-    # pit1 = pitcher[:length]
-    # pit2 = pitcher[length:]
-    # #print(pitcher.shape, pit1.shape, pit2.shape)
-    # out1 = handle_one(pit1)
-    # out2 = handle_one(pit2)
-    # if len(out1)==0:
-    #     out1 = np.zeros((1, 18,2))
-    # if len(out2)==0:
-    #     out2 = np.zeros((1, 18,2))
-    # #print("out2", out2)
-    # #print("out1", out1)
-    # out2[:,:,1]+=length
-    # out2[out2[:,:,1]==length] = 0
-    # #print("out2 after length", out2)
-    # l = [np.sum(np.asarray(elem) ==0) for elem in out2]
-    # #print(l)
-    # most = out2[np.argmin(l)]
-    # print("most", most)
-    # for k in range(len(most)):
-    #     if most[k, 0]==0:
-    #         for i in range(len(out1)):
-    #             if out1[i, k,0]!=0:
-    #                 most[k] = out1[i,k]
-    # #print("out2 after fill with out1", most)
-    #
-    # whole_box = handle_one(pitcher)
-    # l = [np.sum(np.asarray(elem) ==0) for elem in whole_box]
-    # whole_box_person = whole_box[np.argmin(l)]
-    # print("whole_box_person", whole_box_person)
-    # for i in range(len(most)):
-    #     if most[i,0] ==0:
-    #         print("kleiner 40?", np.linalg.norm(whole_box_person[i]-pitcher_array[-1][i])<40)
-    #     if most[i,0] ==0 and np.linalg.norm(whole_box_person[i]-pitcher_array[-1][i])<40:
-    #         most[i] = whole_box_person[i]
-    # #most[np.where(most==0)] = whole_box_person[np.where(most==0)]
-    #
-    # # print("out", out.shape)
-    # # print("out", out)
-    # out = np.array([most])
-    # # for any number of bboxes
-    # out[:,:,0]+=bbox[0]
-    # out[out[:,:,0]==bbox[0]] = 0
-    # out[:,:,1]+=bbox[2]
-    # out[out[:,:,1]==bbox[2]] = 0
-    # print("out", out)
+    print("Time for whole video to joint trajectories: ", toctoc-tic)

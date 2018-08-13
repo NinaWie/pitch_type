@@ -5,7 +5,7 @@ import math
 from scipy.signal import butter, lfilter, freqz, group_delay, filtfilt
 from scipy.ndimage.filters import gaussian_filter
 from scipy.spatial.distance import cdist
-from torch import np
+# from torch import np
 import argparse
 import os
 import util
@@ -444,7 +444,7 @@ if __name__ == "__main__":
                         help='video file to be processed')
     parser.add_argument('output_folder', default="outputs/", metavar='DIR', # output dir
                         help='folder where to store the json files with the output coordinates and images')
-    parser.add_argument('-number_frames', default=np.inf, metavar='DIR', # output dir
+    parser.add_argument('-number_frames', default=10000, metavar='DIR', # output dir
                         help='number of frames to be processed')
     args = parser.parse_args()
 
@@ -464,7 +464,6 @@ if __name__ == "__main__":
         if frame is None:
             break
         x,y, _ = frame.shape
-        # impo = frame[:int(0.5*x), int(0.3*y):int(0.8*y)] # relevant part of the image
         print("Frame", t)
         try:
             canvas, coordinates = handle_one(frame, colour_image=True)

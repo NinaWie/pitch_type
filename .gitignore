@@ -3,6 +3,8 @@ notebooks_data
 old_versions
 saved_models
 *.csv
+4_Object_tracking/ball_speed_from_2D
+4_Object_tracking/pitch_speed_from_videos
 1_Pose_Estimation/model/pose_model.pth
 logs
 *.DS_Store

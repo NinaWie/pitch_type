@@ -1,2 +1,2 @@
-model_checkpoint_path: "play_outcome"
-all_model_checkpoint_paths: "play_outcome"
+model_checkpoint_path: "batter_first_step_new"
+all_model_checkpoint_paths: "batter_first_step_new"

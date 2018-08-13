@@ -119,24 +119,3 @@ def filter_bspline(new_df, deg = 3, knot_dist = 5):
             #plt.show()
             new_df[:,k,j] = y[50:-50]
     return new_df
-
-if False:
-    # new_df = interpolate(new_df)
-    b_new_df = mix_right_left(new_df.copy())
-    b_new_df = filter_bspline(b_new_df, knot_dist=10)
-
-    #print(new_df[:3])
-    plt.figure(figsize=(20,10))
-    for i in range(len(new_df[0])):
-        plt.plot(b_new_df[:,i,0], label = i)
-    plt.legend()
-    plt.title("curve fitting")
-    plt.show()
-
-    arr2 = color_video(b_new_df, f, start = 0, cut_frame=False, end =len(new_df), printing = None, plotting=False)
-    io.vwrite(outputs+name+"_bsplinefit"+".mp4", arr2)
-
-    # to_json(new_df, {}, outputs+name+"_smooth")
-    # continue
-
-    #arr2 = color_video(new_df[:,:12,:], f, start = 0, cut_frame=False, end =2, printing = None, plotting=True)

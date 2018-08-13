@@ -275,40 +275,23 @@ def df_coordinates(new_df, right_left = True, do_interpolate = True, smooth = Tr
     return new_df
 
 
-def to_json(play, events_dic, save_path, position = None, pitchtype = None, frames_per_sec = 30):
+def to_json(play, save_path):
     """
     Saves data in the standard json format
-    play: array of size nr_frames*nr_joints*nr_coordinates
-    events_dic: dictionary containing meta information about the game (time, pitchers first movement...)
-    pitchtype and position can also be saved in json file, if processed in real time
+    @param play: array of size nr_frames*nr_joints*nr_coordinates
+    @param save_path: output path where to save the json file
     """
     frames, joints, xy = play.shape
-    start_time = int(round(events_dic["start_time"] * 1000))
     dic = {}
-    dic["time_start"] = start_time
-    dic["bbox_pitcher"] = events_dic["bbox_pitcher"]
-    dic["bbox_batter"] = events_dic["bbox_batter"]
-    dic["video_directory"] = events_dic["video_directory"]
-    dic["Pitching position"]= position
-    dic["Pitch Type"] = pitchtype
-    dic["device"] = "?"
-    dic["deployment"] = "?"
     dic["frames"] = []
     for i in range(frames):
         dic_joints = {}
-        dic_joints["timestamp"] = int(round(start_time + (1000*i)/float(frames_per_sec)))
         for j in range(18): #joints):
             dic_xy = {}
             for k in range(xy):
                 dic_xy[coordinates[k]] = play[i,j,k]
             dic_joints[joints_list[j]] = dic_xy
-        dic_joints["events"]=[]
-        for j in events_dic.keys():
-            if i==events_dic[j]:
-                dic_joints["events"].append({"timestamp": int(round(time.time() * 1000)), "name": j,"code": 1,
-                                    "target_name": "Pitcher", "target_id": 1})
         dic["frames"].append(dic_joints)
-
     with open(save_path+".json", 'w') as outfile:
         json.dump(dic, outfile, indent=10)
 
@@ -349,127 +332,3 @@ def save_inbetween(arr, fi, out_dir, events_dic):
     file_path_pitcher = out_dir+game_id
     print(events_dic, file_path_pitcher)
     to_json(pitcher_array, events_dic, file_path_pitcher)
-
-## OLD FUNCTIONS
-# def mix_right_left(df,index,player):
-#     tic = time.time()
-#     player=player+'_player'
-#     for i in range(1, len(df)-1):
-#         if abs(np.asarray(df[player][i])[index[1]][1]-np.asarray(df[player][i-1])[index[1]][1])+abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[1]][0])>abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[1]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[1]][1]) and abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1])+abs(np.asarray(df[player][i])[index[0]][0]-np.asarray(df[player][i-1])[index[0]][0])>abs(np.asarray(df[player][i])[index[1]][0]-np.asarray(df[player][i-1])[index[0]][0])+abs(np.asarray(df[player][i])[index[0]][1]-np.asarray(df[player][i-1])[index[0]][1]):
-#
-#             left=df[player][i][index[1]]
-#             right=df[player][i][index[0]]
-#             #print i,player,'left is',left,'right is',right
-#             df[player][i][index[1]]=right
-#             df[player][i][index[0]]=left
-#
-#     toc = time.time()
-#     #print("Time for mix right left", toc-tic)
-#     return df
-#
-# def continuity(df_res, player, num_joints=18):
-#     mat = np.array(df_res[player+'_player'].values)
-#     mat = np.stack(mat) # seems necessary because DataFrame does not return a pure np matrix
-#     for limb in range(num_joints):
-#         for xy in [0, 1]: # x and y coord dimension
-#             # TODO: Examine any performance degradation from calling ':' on primary dimension.
-#             values = mat[:, limb, xy]
-#             not_zer = np.logical_not(values == 0)
-#             indices = np.arange(len(values))
-#
-#             if not any(not_zer): # everything is zero, so can't interpolate
-#                 mat[:, limb, xy] = 0
-#                 print("whole joint is zero")
-#             else:
-#                 mat[:, limb, xy] = np.round(
-#                     np.interp(indices, indices[not_zer], values[not_zer]),
-#                     1)
-#     for frame_ii in range(mat.shape[0]):
-#         df_res[player+'_player'][frame_ii] = mat[frame_ii, :, :].tolist()
-#
-#     return df_res
-#
-# def player_localization_ratio(df,frame,player,old_array, body_dist):
-#     tic = time.time()
-#     player2=player+'_player'
-#     dist=[]
-#     ratios = []
-#     for i in range(np.asarray(df[player][frame]).shape[0]):
-#         zerrow1=np.where(np.asarray(df[player][frame])[i,:,0]!=0)
-#         zerrow2=np.where(old_array[:,0]!=0)
-#         zerrow=np.intersect1d(zerrow1,zerrow2)
-#
-#         if len(zerrow)<2:
-#             zerrow=zerrow2
-#         dist.append(np.linalg.norm(np.asarray(df[player][frame])[i,zerrow[0],:]-old_array[zerrow[0],:])/len(zerrow))
-#
-#         p = df[player][frame][i][joints_for_cdist]
-#         player_dist = cdist(p,p)
-#         ratios.append(np.linalg.norm(body_dist-player_dist))
-#     #print dist
-#     #print df[player][frame]
-#     if len(dist)==0 or np.min(ratios)>400:
-#         df[player2][frame]=[[0,0] for i in range(18)]
-#     else:
-#         df[player2][frame]=df[player][frame][np.argmin(dist)]
-#     array_stored=np.asarray(df[player2][frame])
-#     array_stored[np.where(array_stored==0)]=old_array[np.where(array_stored==0)]
-#
-#     joint_arr_cdist = np.array(array_stored)[joints_for_cdist]
-#     new_body_dist = cdist(joint_arr_cdist, joint_arr_cdist)
-#     old_array=array_stored
-#     toc = time.time()
-#     #print("Time for player_localization: ", toc-tic)
-#     return df, old_array, new_body_dist
-#
-
-#
-# def df_coordinates(df,centerd, player_list, interpolate = True):
-#     df.sort_values(by='Frame',ascending=1,inplace=True)
-#     df.reset_index(inplace=True,drop=True)
-#     for player in player_list:
-#         df[player+'_player']=df[player].copy()
-#         player2=player+'_player'
-#         center=centerd[player]
-#         old_norm=10000
-#         indices=[6,9]
-#         #print df[player][0][0]
-#         i=0
-#         found = False
-#         while not found:
-#             #len(df[player][i])==0:
-#
-#             for person in range(len(df[player][i])):
-#                 hips=np.asarray(df[player][i][person])[indices]
-#
-#                 hips=hips[np.sum(hips,axis=1)!=0]
-#                 mean_hips=np.mean(hips,axis=0)
-#
-#
-#                 norm= abs(mean_hips[0]-center[0])+abs(mean_hips[1]-center[1]) #6 hip
-#                 if norm<old_norm:
-#                     found = True
-#                     loc=person
-#                     old_norm=norm
-#             if found:
-#                 break
-#             df[player2][i]=[[0,0] for j in range(18)]
-#             print("no person detected in frame", i)
-#             i+=1
-#
-#         df[player2][i]=df[player][i][loc]
-#         globals()['old_array_%s'%player]=np.asarray(df[player][i][loc])
-#         # joint_arr_cdist = np.array(df[player][0][loc])[joints_for_cdist]
-#         # print("joints_arr_cdist", np.array(joint_arr_cdist).shape)
-#         # globals()['cdist_%s'%player] = cdist(joint_arr_cdist, joint_arr_cdist)
-#
-#         for frame in df['Frame'][(i+1):len(df)]:
-#             df,globals()['old_array_%s'%player] = player_localization(df,frame,player,globals()['old_array_%s'%player])
-#
-#         for index in index_list:
-#             df=mix_right_left(df,index,player)
-#
-#         if interpolate:
-#             df=continuity(df,player)
-#
-#     return df #[['Frame','Pitcher_player','Batter_player']]

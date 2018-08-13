@@ -16,7 +16,7 @@ import argparse
 
 from fmo_detection import from_json
 from run_events import Runner
-from test import test
+from test_script import test
 
 
 from detect_event import first_move_batter_NN
@@ -30,7 +30,7 @@ drive link: https://drive.google.com/drive/folders/19K6yLft35w0QjsW2Y6XEVxhBpHBk
 """
 
 
-def batter_testing(restore_path, data_path, output_path = "../outputs/"):
+def batter_testing(restore_path, data_path, output_path = "outputs/"):
     """
     runs test for testing data in directory batter_runs, selecting only the test data saved in the json file labels_first_batter_test
     saves the outputs as a dictionary containing the first movement frame index for each file
@@ -54,25 +54,26 @@ def batter_testing(restore_path, data_path, output_path = "../outputs/"):
     print("Loaded Data, shape:", joints_array_batter.shape)
 
     # first_move_batter_NN function restores the model and predicts the first step (with 90 as the release frame)
-    lab = first_move_batter_NN(joints_array_batter.copy(), [90 for _ in range(len(joints_array_batter))], model = restore_path) # run test file for array, release frame is estimated 90 for old video data
+    res = first_move_batter_NN(joints_array_batter.copy(), [90 for _ in range(len(joints_array_batter))], model = restore_path) # run test file for array, release frame is estimated 90 for old video data
 
     # Display results
-    for l in range(len(lab)):
-        print("predicted ", lab[l], "true", labels[l])
-    print("mean of labels", np.mean(lab))
+    print("OUTPUTS:")
+    for l in range(len(res)):
+        print("predicted frame:", res[l], " - true:", labels[l])
+    print("mean of results", np.mean(res))
 
-    print("mean squared error:", mean_squared_error(lab, labels), np.sqrt(np.sum((np.asarray(lab)-np.asarray(labels))**2)/float(len(labels))))
+    print("mean squared error:", mean_squared_error(res, labels))
 
     # Make dictionary with results and save it
     dic = {}
-    assert(len(lab)==len(files))
+    assert(len(res)==len(files))
     for i in range(len(files)):
-        dic[files[i]]= float(lab[i])
+        dic[files[i]]= float(res[i])
     with open(os.path.join(output_path, "batter_first_move_test_outputs"), "w") as outfile: # save outputs to plot them in the "Batter first movement" jupyter notebook
         json.dump(dic, outfile)
 
 
-def batter_training(save_path, data_path, output_path = "../outputs/", shift_left = 30, shift_right=10, cutoff_min = 100, cutoff_max = 140):
+def batter_training(save_path, data_path, shift_left = 20, shift_right=20, cutoff_min = 100, cutoff_max = 140):
     """
     train neural network to find the first movement (first step of batter when he starts to run) in a sequence of frames
     save_path: path to save the trained model
@@ -102,11 +103,10 @@ def batter_training(save_path, data_path, output_path = "../outputs/", shift_lef
     joints_array_batter = np.array(joints_array_batter)
 
     ## shift and flip
-    shift1, label1 = Tools.shift_data(joints_array_batter, labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
-    # print(shift1.shape, len(label1))
-    shift2, label2 = Tools.shift_data(joints_array_batter, labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
-    shift3, label3 = Tools.shift_data(joints_array_batter, labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
-    shift4, label4 = Tools.shift_data(joints_array_batter, labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
+    shift1, label1 = Tools.shift_data(joints_array_batter.copy(), labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
+    shift2, label2 = Tools.shift_data(joints_array_batter.copy(), labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
+    shift3, label3 = Tools.shift_data(joints_array_batter.copy(), labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
+    shift4, label4 = Tools.shift_data(joints_array_batter.copy(), labels.copy(), shift_labels = True, shift_left=shift_left, shift_right=shift_right)
     data_old = np.append(shift4, np.append(shift3 , np.append(shift1, shift2, axis = 0), axis = 0), axis = 0) #joints_array_batter[:, shift:len(joints_array_batter[0])-shift]
     label = np.append(label4, np.append(label3, np.append(label1, label2, axis = 0), axis = 0), axis = 0) # np.array(labels)-shift,
     print("Shape of data after shifted randomly:", data_old.shape)
@@ -123,7 +123,7 @@ def batter_training(save_path, data_path, output_path = "../outputs/", shift_lef
     label = np.delete(label, false, axis = 0)
 
 
-    print("Delete data were the label is too low:")
+    print("Delete data where the label is too low:")
     print("length of deleted:", len(false))
     print("New data shape", data_old.shape)
     print("New min and max label:", min(label), max(label))
@@ -144,8 +144,8 @@ def batter_training(save_path, data_path, output_path = "../outputs/", shift_lef
 
     ## save training data to inspect data and corresponding labels
     ## SEE CORRESPONDING OUTPUTS IN NOTEBOOK BATTER_MOVEMENT last section - plotted examples and histogram of labels
-    # np.save("../outputs/batter_first_data", data)
-    # np.save("../outputs/batter_first_label", label)
+    np.save("../train_data/batter_first_data", data)
+    np.save("../train_data/batter_first_label", label)
 
     runner = Runner(np.array(data), np.reshape(label, (-1,1)), SAVE = save_path, BATCH_SZ=40, EPOCHS = 200, batch_nr_in_epoch = 50,
             act = tf.nn.relu, rate_dropout = 0,

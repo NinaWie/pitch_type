@@ -5,10 +5,10 @@ import scipy as sp
 import scipy.stats
 import threading
 import json
-
+import os
 import sys
 sys.path.append("/Users/ninawiedemann/Desktop/UNI/Praktikum/ALL")
-from tools import Tools
+from utils import Tools
 from model import Model
 
 class Runner(threading.Thread):
@@ -26,7 +26,7 @@ class Runner(threading.Thread):
         self.unique  = np.unique(labels_string).tolist()
         self.SAVE = SAVE
         self.BATCH_SZ=BATCH_SZ
-        self.EPOCHS = EPOCHS
+        self.EPOCHS = 2 # EPOCHS
         self.batch_nr_in_epoch = batch_nr_in_epoch
         self.act = act
         self.rate_dropout = rate_dropout
@@ -70,6 +70,7 @@ class Runner(threading.Thread):
         mean_end_accuracy = []
         balanced_max = []
         for i in range(10):
+            print("--------------- Train on ", i, "-th part of testing data (10-fold cross validation)")
             tf.reset_default_graph()
             sess = tf.InteractiveSession()
 
@@ -285,43 +286,34 @@ class Runner(threading.Thread):
                     print('{:>20}'.format("Loss"), '{:>20}'.format("Acc test"), '{:>20}'.format("Acc balanced"), '{:>20}'.format("Acc train"))
                 print('{:20}'.format(round(float(loss_test),3)), '{:20}'.format(acc_test[-1]), '{:20}'.format(acc_balanced[-1]), '{:20}'.format(acc_train[-1]))
 
-                # if acc_test[-1]>=0.8 and acc_balanced[-1]>=0.8 and self.SAVE is not None:
-                #     saver.save(sess, self.SAVE)
-                #     print("model saved with name", self.SAVE)
-                #     return pitches_test, max(acc_test)
-            # AUSGABE AM ENDE
-            print("\n\n\n---------------------------------------------------------------------")
-            #print("NEW PARAMETERS: ", BATCHSIZE, self.EPOCHS, self.act, self.align, self.batch_nr_in_epoch, self.rate_dropout, self.learning_rate, len_train, self.n_hidden, self.nr_layers, self.network, nr_classes, nr_joints)
-            #Test Accuracy
-            #print("Losses", losses)
-            #print("Accuracys test: ", acc_test)
-            #print("Accuracys train: ", acc_train)
             print("\nMAXIMUM ACCURACY TEST: ", max(acc_test))
             #print("MAXIMUM ACCURACY TRAIN: ", max(acc_train))
 
             #print("Accuracy test by class: ", Tools.accuracy_per_class(pitches_test, labels_string_test))
-            print("True                Test                 ", self.unique)
-            if len(self.unique)==1:
-                for i in range(10): #len(labels_string_test)):
-                    print(labels_string_test[i], pitches_test[i])
-            else:
-            # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
-                for i in range(30): #len(labels_string_test)):
-                    print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
+            # print("True                Test                 ", self.unique)
+            # if len(self.unique)==1:
+            #     for i in range(10): #len(labels_string_test)):
+            #         print(labels_string_test[i], pitches_test[i])
+            # else:
+            # # print(np.swapaxes(np.append([labels_string_test], [pitches_test], axis=0), 0,1))
+            #     for i in range(30): #len(labels_string_test)):
+            #         print('{:20}'.format(labels_string_test[i]), '{:20}'.format(pitches_test[i])) #, ['%.2f        ' % elem for elem in out_test[i]])
 
             max_accuracy.append(max(acc_test))
             mean_end_accuracy.append(np.mean(acc_test[-5:]))
             balanced_max.append(max(acc_balanced))
-            print("maximums", max_accuracy, "means of last five", mean_end_accuracy)
-            Tools.confusion_matrix(np.asarray(pitches_test), np.asarray(labels_string_test)) # confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
+            # print("maximums", max_accuracy, "means of last five", mean_end_accuracy)
+            # Tools.confusion_matrix(np.asarray(pitches_test), np.asarray(labels_string_test)) # confused_classes(np.asarray(pitches_test), np.asarray(labels_string_test))
             sess.close()
-        print("ergebnis 10 fold cross:", np.mean(max_accuracy), np.mean(mean_end_accuracy), np.mean(balanced_max))
-        with open("ten_fold.json", "r") as infile:
+
+        # END: save results of ten fold cross validation
+        print("result 10 fold cross:", np.mean(max_accuracy), np.mean(mean_end_accuracy), np.mean(balanced_max))
+        with open(os.path.join("2_Movement_classification", "ten_fold_results.json"), "r") as infile:
             dic = json.load(infile)
         dic_accuracies = {"maximum": max_accuracy, "mean_over5": mean_end_accuracy, "balanced_max": balanced_max}
         dic[self.SAVE] = dic_accuracies
 
-        with open("ten_fold.json", "w") as outfile:
+        with open(os.path.join("2_Movement_classification", "ten_fold_results.json"), "w") as outfile:
             json.dump(dic, outfile)
 
         return 0

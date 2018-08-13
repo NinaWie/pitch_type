@@ -349,14 +349,12 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
     images = [frame for _ in range(length_lists)]
     motion_images = [np.zeros((len(frame), len(frame[0]))) for _ in range(length_lists)]
     candidates_per_frame = [[] for _ in range(length_lists)]
-    # frame count
+
     t=1
 
     first_move_found = False
-    ball_release_found = False
 
     # function returns
-    ball_release = 0 # if not found
     first_move_frame = 0 # if not found
     ball_trajectory = []
 
@@ -382,6 +380,9 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
 
         tic = time.time()
 
+        # add frame to image list
+        images = np.roll(np.array(images), -1, axis=0)
+        images[-1] = frame
         # three images for getting the difference image
         im_tm1 = images[-2*every_x_frame-1]
         im_t = images[-every_x_frame-1]
@@ -403,8 +404,7 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
 
         # Add candidates to the graph for GBCV
         for i, candidate in enumerate(candidates):
-            if t>0:
-                candidates_per_frame = add_candidate(candidate, candidates_per_frame)
+            candidates_per_frame = add_candidate(candidate, candidates_per_frame)
 
         ### BALL DETECTION:
 
@@ -413,10 +413,6 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
         # 1. case: No ball detected so far, and possible triple available
         if np.all(triple>0) and len(balls)==0:
             balls = ball_detection(candidates_per_frame, balls) # check confidence value
-
-            if len(balls)==3 and not ball_release_found: # first ball detection
-                ball_release_found = True
-                ball_release = t-2 # first ball detection
 
         # 2. case: already balls detected
         elif len(balls)>0:
@@ -437,11 +433,13 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
                 # print("slopes", mean_slope, mean_slope_previous)
                 if abs(mean_slope-mean_slope_previous)<0.4:
                     for i, b in enumerate(balls):
-                        frame_count = len(balls)-i
+                        # -1 because one behind because in the current frame no ball is detected anymore,
+                        # and every_x_frame because difference image always lags one behind
+                        frame_count = t-1-every_x_frame-len(balls)+i
                         # it might happen that the previous ball detection go until frame x, and then the ball is lost,
                         # but the next ball detection starts from frame x again. Thus, check if x already in the ball_trajectory
-                        if len(ball_trajectory)==0 or t-1-frame_count not in np.asarray(ball_trajectory)[:,2]:
-                            ball_trajectory.append([b.center[0], b.center[1], t-1-frame_count])
+                        if len(ball_trajectory)==0 or frame_count not in np.asarray(ball_trajectory)[:,2]:
+                            ball_trajectory.append([b.center[0], b.center[1], frame_count])
 
                 balls = [] # new ball list
             else: # new ball found --> add to ball list, continue
@@ -459,7 +457,7 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
         if not first_move_found and joints_array is not None:
             if candidates!=[]:
                 # check if any of the candidates is sufficiently close to knees or ankles
-                motion_close_to_leg = first_movement(candidates, joints_array[t-every_x_frame-1])
+                motion_close_to_leg = first_movement(candidates, joints_array[t-every_x_frame])
                 if motion_close_to_leg:
                     ankle_move.append(t) # add current frame index (t) to sequence if there was a motion close to the leg
 
@@ -485,11 +483,9 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
         tocs3.append(time.time()-tic3)
 
         if plotting and len(candidates)>0: #len(balls)>0: # ##
-            plot(im_t, candidates, t)
+            plot(im_t, candidates, t-every_x_frame)
 
         t+=1
-        images = np.roll(np.array(images), -1, axis=0)
-        images[-1] = frame
         motion_images = np.roll(np.array(motion_images), -1, axis=0)
         motion_images[-1] = diff_image
 
@@ -499,22 +495,20 @@ def detect_ball(folder, joints_array=None, min_area = 400, plotting=True, every_
     ## FOR TIMING TESTS
     #print("average candidates", np.mean(balls_per_frame))
     #print("insgesamt", np.mean(tocs))
-    #print("für ball", np.mean(tocs2))
+    #print("for ball", np.mean(tocs2))
     #print("first move", np.mean(tocs3))
     #print("time for %s frames"%t, (time.time() - start) * 1000)
 
     # calculate back to normal frame size
     if roi is not None:
         for b in ball_trajectory:
-            b[0]+= roi[0]
-            b[1]+= roi[2]
-    return ball_release, np.array(ball_trajectory), first_move_frame, candidates_per_frame[length_lists+1:]
+            b[0]+= roi[2]
+            b[1]+= roi[0]
 
+    new_cand_list = []
+    for i, cand_list in enumerate(candidates_per_frame[length_lists+1:]):
+        # cands = [[cand.bbox[:2], cand.bbox[2:]] for cand in cand_list]
+        cands = [[[float(cand.bbox[0]),float(cand.bbox[1])],[float(cand.bbox[2]),float(cand.bbox[3])]] for cand in cand_list]
+        new_cand_list.append(cands)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run FMO-C on a video to find motion candidates')
-    parser.add_argument('-min_area', default=400, type=int, help='Minimum area to find connected components from difference images')
-    parser.add_argument('video_path', type=str, help='path to the video')
-    args = parser.parse_args()
-
-    ball_release, ball_trajectory, first_move_frame, candidates_per_frame = detect_ball(args.video_path, min_area=args.min_area)
+    return np.array(ball_trajectory), first_move_frame, new_cand_list # candidates_per_frame[length_lists+1:]
